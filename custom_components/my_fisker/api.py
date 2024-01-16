@@ -1,17 +1,15 @@
-import requests
+#import asyncio
 import json
-import asyncio
-import aiohttp
 import logging
 
+import aiohttp
+
+#import requests
 from .const import API_TIMEOUT, TOKEN_URL, WSS_URL
 
 # import websockets
 
 _LOGGER = logging.getLogger(__name__)
-
-username = "elbil@oernsholt.net"
-password = "fiskeStang@22"
 
 headers = {"User-Agent": "MOBILE 1.0.0.0"}
 
