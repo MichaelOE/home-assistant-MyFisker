@@ -15,6 +15,11 @@
                     "password": "Password",
                     "username": "Username"
                 }
+            },
+            "alias": {
+                "data": {
+                    "alias": "Alias (entity-prefix) for your Fisker"
+                }
             }
         }
     }
