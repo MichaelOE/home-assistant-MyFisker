@@ -19,6 +19,7 @@ from homeassistant.const import (
     CONF_HOST,
     CONF_PASSWORD,
     CONF_USERNAME,
+    CONF_ALIAS,
     PERCENTAGE,
     UnitOfEnergy,
     UnitOfPower,
@@ -50,10 +51,155 @@ class FiskerEntityDescription(SensorEntityDescription):
         self.native_unit_of_measurement = native_unit_of_measurement
         self.value = value
 
-    # value: Callable = lambda x, y: x
-
     def get_value(self, data):
         return self.value(data, self.key)
+
+
+async def async_setup_entry(
+    hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
+) -> None:
+    _LOGGER.debug("Setup sensors")
+
+    my_Fisker_data = hass.data[DOMAIN][entry.entry_id]
+
+    data = entry.data
+    myFiskerApi = MyFiskerAPI(data[CONF_USERNAME], data[CONF_PASSWORD])
+    await myFiskerApi.GetAuthTokenAsync()
+
+    # Fetch initial data so we have data when entities subscribe
+    coordinator = MyFiskerCoordinator(hass, myFiskerApi, data[CONF_ALIAS])
+
+    await coordinator.async_config_entry_first_refresh()
+
+    entities: list[FiskerSensor] = []
+
+    # for sensor in SENSORS:
+    for idx in enumerate(coordinator.data):
+        sens = get_sensor_by_key(idx[1])
+        entities.append(FiskerSensor(coordinator, idx, sens, my_Fisker_data))
+
+    # Add entities to Home Assistant
+    async_add_entities(entities)
+
+
+class MyFiskerCoordinator(DataUpdateCoordinator):
+    """My Fisker coordinator."""
+
+    def __init__(self, hass, my_api: MyFiskerAPI, alias: str):
+        """Initialize my coordinator."""
+        super().__init__(
+            hass,
+            _LOGGER,
+            # Name of the data. For logging purposes.
+            name=f"MyFisker coordinator for '{alias}'",
+            # Polling interval. Will only be polled if there are subscribers.
+            update_interval=timedelta(seconds=30),
+        )
+        self.my_fisker_api = my_api
+        self._alias = alias
+
+    async def _async_update_data(self):
+        # Fetch data from API endpoint. This is the place to pre-process the data to lookup tables so entities can quickly look up their data.
+        try:
+            async with asyncio.timeout(30):
+                await self.my_fisker_api.GetAuthTokenAsync()
+                retData = await self.my_fisker_api.fetch_data()
+                return retData
+        except:
+            _LOGGER.error("MyCoordinator _async_update_data failed")
+        # except ApiAuthError as err:
+        #     # Raising ConfigEntryAuthFailed will cancel future updates
+        #     # and start a config flow with SOURCE_REAUTH (async_step_reauth)
+        #     raise ConfigEntryAuthFailed from err
+        # except ApiError as err:
+        #     raise UpdateFailed(f"Error communicating with API: {err}")
+
+
+async def async_setup_platform(hass, config, async_add_entities, discovery_info=None):
+    # Code for setting up your platform inside of the event loop
+    _LOGGER.debug("async_setup_platform")
+
+
+class FiskerSensor(CoordinatorEntity, SensorEntity):
+    # An entity using CoordinatorEntity.
+
+    def __init__(self, coordinator, idx, sensor: FiskerEntityDescription, client):
+        """Pass coordinator to CoordinatorEntity."""
+        super().__init__(coordinator, context=idx)
+        self.idx = idx
+        # self._sensor = sensor
+        self._data = client
+        self._coordinator = coordinator
+        self.entity_description = sensor
+        self._attr_unique_id = f"{self._coordinator.data['vin']}_{sensor.key}"
+        self._attr_name = f"{self._coordinator._alias} {sensor.name}"
+
+        _LOGGER.info(self._attr_unique_id)
+        # self.icon = self._sensor.icon
+
+        if sensor.native_unit_of_measurement:
+            self._attr_native_unit_of_measurement = sensor.native_unit_of_measurement
+            self._attr_state_class = SensorStateClass.MEASUREMENT
+
+    @property
+    def device_info(self):
+        """Return device information about this entity."""
+        _LOGGER.debug("My Fisker: device_info")
+
+        return {
+            "identifiers": {
+                # Unique identifiers within a specific domain
+                (DOMAIN, self._coordinator.data["vin"])
+            },
+            "manufacturer": "Fisker inc.",
+            "model": "Fisker (Ocean)",
+            "name": self._coordinator._alias,  # self._data.get_name(),
+        }
+
+    @callback
+    def _handle_coordinator_update(self) -> None:
+        """Handle updated data from the coordinator."""
+        # self._attr_is_on = 12334  # self.coordinator.data[self.idx]["state"]
+
+        if "seat_heat" in self.entity_description.key:
+            self.mode = CLIMATE_CONTROL_SEAT_HEAT.get(
+                self.state, CLIMATE_CONTROL_SEAT_HEAT[0]
+            )
+            self._attr_native_value = self.mode[0]
+
+        self._attr_available = True
+        self._attr_is_on = True
+        self.async_write_ha_state()
+
+    @property
+    def should_poll(self):
+        return False
+
+    @property
+    def state(self):
+        try:
+            state = self.entity_description.get_value(self.coordinator.data)
+        except (KeyError, ValueError):
+            return None
+        return state
+
+    # async def async_turn_on(self, **kwargs):
+    #     """Turn the light on.
+
+    #     Example method how to request data updates.
+    #     """
+    #     # Do the turning on.
+    #     # ...
+
+    #     # Update the data
+    #     await self.coordinator.async_request_refresh()
+
+
+# Get an item by its key
+def get_sensor_by_key(key):
+    for sensor in SENSORS:
+        if sensor.key == key:
+            return sensor
 
 
 SENSORS: tuple[SensorEntityDescription, ...] = (
@@ -94,7 +240,7 @@ SENSORS: tuple[SensorEntityDescription, ...] = (
     ),
     FiskerEntityDescription(
         key="battery_total_mileage_odometer",
-        name="Total mileage odometer",
+        name="Battery total mileage odometer",
         icon="mdi:counter",
         native_unit_of_measurement=UnitOfLength.KILOMETERS,
         value=lambda data, key: data[key],
@@ -338,168 +484,3 @@ SENSORS: tuple[SensorEntityDescription, ...] = (
         value=lambda data, key: data[key],
     ),
 )
-
-
-# Get an item by its key
-def get_sensor_by_key(key):
-    for sensor in SENSORS:
-        if sensor.key == key:
-            return sensor
-
-
-async def async_setup_entry(
-    hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
-) -> None:
-    _LOGGER.debug("Setup sensors")
-
-    my_Fisker = hass.data[DOMAIN][entry.entry_id]
-
-    data = entry.data
-    myFiskerApi = MyFiskerAPI(data[CONF_USERNAME], data[CONF_PASSWORD])
-    token = await myFiskerApi.GetAuthTokenAsync()
-
-    # Fetch initial data so we have data when entities subscribe
-    coordinator = MyCoordinator(hass, myFiskerApi)
-
-    await coordinator.async_config_entry_first_refresh()
-
-    entities: list[FiskerSensor] = []
-
-    # for sensor in SENSORS:
-    for idx in enumerate(coordinator.data):
-        sens = get_sensor_by_key(idx[1])
-        entities.append(FiskerSensor(coordinator, idx, sens, my_Fisker))
-
-    # async_add_entities(
-    #     FiskerSensorNy(coordinator, idx, SENSORS[idx], my_Fisker)
-    #     for idx, ent in enumerate(coordinator.data)
-    # )
-
-    # Add entities to Home Assistant
-    async_add_entities(entities)
-
-
-class MyCoordinator(DataUpdateCoordinator):
-    """My custom coordinator."""
-
-    def __init__(self, hass, my_api: MyFiskerAPI):
-        """Initialize my coordinator."""
-        super().__init__(
-            hass,
-            _LOGGER,
-            # Name of the data. For logging purposes.
-            name="MyFisker sensor",
-            # Polling interval. Will only be polled if there are subscribers.
-            update_interval=timedelta(seconds=30),
-        )
-        self.my_fisker_api = my_api
-
-    async def _async_update_data(self):
-        """Fetch data from API endpoint.
-
-        This is the place to pre-process the data to lookup tables
-        so entities can quickly look up their data.
-        """
-
-        try:
-            # Note: asyncio.TimeoutError and aiohttp.ClientError are already handled by the data update coordinator.
-            async with asyncio.timeout(30):
-                # Grab active context variables to limit data required to be fetched from API
-                # Note: using context is not required if there is no need or ability to limit data retrieved from API.
-                # listening_idx = set(self.async_contexts())
-
-                token = await self.my_fisker_api.GetAuthTokenAsync()
-                retData = await self.my_fisker_api.fetch_data()
-                return retData
-        except:
-            _LOGGER.error("MyCoordinator _async_update_data failed")
-        # except ApiAuthError as err:
-        #     # Raising ConfigEntryAuthFailed will cancel future updates
-        #     # and start a config flow with SOURCE_REAUTH (async_step_reauth)
-        #     raise ConfigEntryAuthFailed from err
-        # except ApiError as err:
-        #     raise UpdateFailed(f"Error communicating with API: {err}")
-
-
-async def async_setup_platform(hass, config, async_add_entities, discovery_info=None):
-    # Code for setting up your platform inside of the event loop
-    _LOGGER.debug("async_setup_platform")
-
-
-class FiskerSensor(CoordinatorEntity, SensorEntity):
-    # An entity using CoordinatorEntity.
-
-    def __init__(self, coordinator, idx, sensor: FiskerEntityDescription, client):
-        """Pass coordinator to CoordinatorEntity."""
-        super().__init__(coordinator, context=idx)
-        self.idx = idx
-        self._sensor = sensor
-        self._data = client
-        self._coordinator = coordinator
-        self._attr_name = sensor.name
-        self._attr_unique_id = f"{self._coordinator.data['vin']}_{sensor.key}"
-        self.icon = self._sensor.icon
-
-        if sensor.native_unit_of_measurement:
-            self._attr_native_unit_of_measurement = sensor.native_unit_of_measurement
-            self._attr_state_class = SensorStateClass.MEASUREMENT
-
-    @property
-    def device_info(self):
-        """Return device information about this entity."""
-        _LOGGER.debug("My Fisker: device_info")
-
-        return {
-            "identifiers": {
-                # Unique identifiers within a specific domain
-                (DOMAIN, self._coordinator.data["vin"])
-            },
-            "manufacturer": "Fisker inc.",
-            "model": "Fisker (Ocean)",
-            "name": self._data.get_name(),
-        }
-
-    @callback
-    def _handle_coordinator_update(self) -> None:
-        """Handle updated data from the coordinator."""
-        # self._attr_is_on = 12334  # self.coordinator.data[self.idx]["state"]
-
-        if "seat_heat" in self._sensor.key:
-            self.mode = CLIMATE_CONTROL_SEAT_HEAT.get(
-                self.state, CLIMATE_CONTROL_SEAT_HEAT[0]
-            )
-            self._attr_native_value = self.mode[0]
-
-        self._attr_available = True
-
-        self._attr_is_on = True
-
-        self.async_write_ha_state()
-
-    @property
-    def unique_id(self):
-        return self._attr_unique_id
-
-    @property
-    def should_poll(self):
-        return False
-
-    @property
-    def state(self):
-        try:
-            state = self._sensor.get_value(self.coordinator.data)
-
-        except (KeyError, ValueError):
-            return None
-        return state
-
-    # async def async_turn_on(self, **kwargs):
-    #     """Turn the light on.
-
-    #     Example method how to request data updates.
-    #     """
-    #     # Do the turning on.
-    #     # ...
-
-    #     # Update the data
-    #     await self.coordinator.async_request_refresh()
