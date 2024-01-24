@@ -16,26 +16,27 @@ from homeassistant.components.sensor import (
 )
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import (
+    CONF_ALIAS,
     CONF_HOST,
     CONF_PASSWORD,
     CONF_USERNAME,
-    CONF_ALIAS,
     PERCENTAGE,
     UnitOfEnergy,
+    UnitOfLength,
     UnitOfPower,
     UnitOfSpeed,
     UnitOfTemperature,
-    UnitOfLength,
+    UnitOfTime,
 )
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import (
     CoordinatorEntity,
-    DataUpdateCoordinator,
+    # DataUpdateCoordinator,
 )
 
 from .api import MyFiskerAPI
-from .const import DOMAIN, CLIMATE_CONTROL_SEAT_HEAT
+from .const import CLIMATE_CONTROL_SEAT_HEAT, DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -62,57 +63,30 @@ async def async_setup_entry(
 
     my_Fisker_data = hass.data[DOMAIN][entry.entry_id]
 
-    data = entry.data
-    myFiskerApi = MyFiskerAPI(data[CONF_USERNAME], data[CONF_PASSWORD])
-    await myFiskerApi.GetAuthTokenAsync()
+    # data = entry.data
+    # myFiskerApi = MyFiskerAPI(data[CONF_USERNAME], data[CONF_PASSWORD])
+    # await myFiskerApi.GetAuthTokenAsync()
 
+    # Glostrup:
     # Fetch initial data so we have data when entities subscribe
-    coordinator = MyFiskerCoordinator(hass, myFiskerApi, data[CONF_ALIAS])
+    #    coordinator = MyFiskerCoordinator(hass, myFiskerApi, data[CONF_ALIAS])
 
-    await coordinator.async_config_entry_first_refresh()
+    #    await coordinator.async_config_entry_first_refresh()
+
+    coordinator = my_Fisker_data._coordinator
 
     entities: list[FiskerSensor] = []
 
     # for sensor in SENSORS:
     for idx in enumerate(coordinator.data):
         sens = get_sensor_by_key(idx[1])
-        entities.append(FiskerSensor(coordinator, idx, sens, my_Fisker_data))
+        if sens is None:
+            _LOGGER.warning(idx[1])
+        else:
+            entities.append(FiskerSensor(coordinator, idx, sens, my_Fisker_data))
 
     # Add entities to Home Assistant
     async_add_entities(entities)
-
-
-class MyFiskerCoordinator(DataUpdateCoordinator):
-    """My Fisker coordinator."""
-
-    def __init__(self, hass, my_api: MyFiskerAPI, alias: str):
-        """Initialize my coordinator."""
-        super().__init__(
-            hass,
-            _LOGGER,
-            # Name of the data. For logging purposes.
-            name=f"MyFisker coordinator for '{alias}'",
-            # Polling interval. Will only be polled if there are subscribers.
-            update_interval=timedelta(seconds=30),
-        )
-        self.my_fisker_api = my_api
-        self._alias = alias
-
-    async def _async_update_data(self):
-        # Fetch data from API endpoint. This is the place to pre-process the data to lookup tables so entities can quickly look up their data.
-        try:
-            async with asyncio.timeout(30):
-                await self.my_fisker_api.GetAuthTokenAsync()
-                retData = await self.my_fisker_api.fetch_data()
-                return retData
-        except:
-            _LOGGER.error("MyCoordinator _async_update_data failed")
-        # except ApiAuthError as err:
-        #     # Raising ConfigEntryAuthFailed will cancel future updates
-        #     # and start a config flow with SOURCE_REAUTH (async_step_reauth)
-        #     raise ConfigEntryAuthFailed from err
-        # except ApiError as err:
-        #     raise UpdateFailed(f"Error communicating with API: {err}")
 
 
 async def async_setup_platform(hass, config, async_add_entities, discovery_info=None):
@@ -229,6 +203,20 @@ SENSORS: tuple[SensorEntityDescription, ...] = (
         name="Battery percent",
         icon="mdi:battery-70",
         native_unit_of_measurement=PERCENTAGE,
+        value=lambda data, key: data[key],
+    ),
+    FiskerEntityDescription(
+        key="battery_remaining_charging_time",
+        name="Battery remaining charging time",
+        icon="mdi:battery-clock-outline",
+        native_unit_of_measurement=UnitOfTime.MINUTES,
+        value=lambda data, key: data[key],
+    ),
+    FiskerEntityDescription(
+        key="battery_remaining_charging_time_full",
+        name="Battery remaining charging time full",
+        icon="mdi:battery-clock-outline",
+        native_unit_of_measurement=UnitOfTime.MINUTES,
         value=lambda data, key: data[key],
     ),
     FiskerEntityDescription(
