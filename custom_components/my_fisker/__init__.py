@@ -1,12 +1,20 @@
 """The My Fisker integration."""
 from __future__ import annotations
 
+import asyncio.timeouts
+
 import logging
 from datetime import timedelta
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import CONF_PASSWORD, CONF_USERNAME, Platform
+from homeassistant.const import CONF_PASSWORD, CONF_USERNAME, CONF_ALIAS, Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
+
+from homeassistant.helpers.update_coordinator import (
+    CoordinatorEntity,
+    DataUpdateCoordinator,
+)
+
 
 from .const import DOMAIN
 
@@ -16,7 +24,10 @@ _LOGGER = logging.getLogger(__name__)
 
 # TODO List the platforms that you want to support.
 # For your initial PR, limit it to 1 platform.
-PLATFORMS: list[Platform] = [Platform.SENSOR]
+PLATFORMS: list[Platform] = [
+    #Platform.BUTTON, 
+    Platform.SENSOR
+    ]
 
 
 async def async_setup(hass: HomeAssistant, config: dict):
@@ -35,8 +46,20 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # TODO 3. Store an API object for your platforms to access
     # hass.data[DOMAIN][entry.entry_id] = MyApi(...)
 
+    # Glostrup:
+    data = entry.data
+    myFiskerApi = MyFiskerAPI(data[CONF_USERNAME], data[CONF_PASSWORD])
+    await myFiskerApi.GetAuthTokenAsync()
+
+    # Fetch initial data so we have data when entities subscribe
+    coordinator = MyFiskerCoordinator(hass, myFiskerApi, data[CONF_ALIAS])
+    await coordinator.async_config_entry_first_refresh()
+
     hass.data[DOMAIN][entry.entry_id] = HassMyFisker(
-        entry.data[CONF_USERNAME], entry.data[CONF_PASSWORD]
+        entry.data[CONF_USERNAME],
+        entry.data[CONF_PASSWORD],
+        entry.data[CONF_ALIAS],
+        coordinator,
     )
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
@@ -53,13 +76,54 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 
 class HassMyFisker:
-    def __init__(self, username: str, password: str):
+    def __init__(
+        self,
+        username: str,
+        password: str,
+        alias: str,
+        coordinator: DataUpdateCoordinator,
+    ):
         self._username = username
         self._password = password
-        _LOGGER.debug(f"MyFisker __init__{self._username}")
+        self._alias = alias
+        self._coordinator = coordinator
+        _LOGGER.debug(f"MyFisker __init__{self._username}:{self._alias}")
 
     def get_name(self):
         return f"myFisker_{self._username}"
 
     def get_unique_id(self):
         return f"myfisker_{self._username}"
+
+
+class MyFiskerCoordinator(DataUpdateCoordinator):
+    """My Fisker coordinator."""
+
+    def __init__(self, hass, my_api: MyFiskerAPI, alias: str):
+        """Initialize my coordinator."""
+        super().__init__(
+            hass,
+            _LOGGER,
+            # Name of the data. For logging purposes.
+            name=f"MyFisker coordinator for '{alias}'",
+            # Polling interval. Will only be polled if there are subscribers.
+            update_interval=timedelta(seconds=30),
+        )
+        self.my_fisker_api = my_api
+        self._alias = alias
+
+    async def _async_update_data(self):
+        # Fetch data from API endpoint. This is the place to pre-process the data to lookup tables so entities can quickly look up their data.
+        try:
+            async with asyncio.timeout(30):
+                await self.my_fisker_api.GetAuthTokenAsync()
+                retData = await self.my_fisker_api.fetch_data()
+                return retData
+        except:
+            _LOGGER.error("MyCoordinator _async_update_data failed")
+        # except ApiAuthError as err:
+        #     # Raising ConfigEntryAuthFailed will cancel future updates
+        #     # and start a config flow with SOURCE_REAUTH (async_step_reauth)
+        #     raise ConfigEntryAuthFailed from err
+        # except ApiError as err:
+        #     raise UpdateFailed(f"Error communicating with API: {err}")
