@@ -67,7 +67,9 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             try:
                 self._userInput = user_input
-                self._userInput["vin"] = await validate_login(self.hass, self._userInput)
+                self._userInput["vin"] = await validate_login(
+                    self.hass, self._userInput
+                )
             except CannotConnect:
                 errors["base"] = "cannot_connect"
             except InvalidAuth:
