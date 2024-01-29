@@ -1,13 +1,14 @@
 """Platform for sensor integration."""
 from __future__ import annotations
 
-import asyncio.timeouts
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import timedelta
 import json
 import logging
+from typing import cast
 
+from homeassistant.components.my_fisker import FiskerEntityDescription
 from homeassistant.components.sensor import (
     SensorDeviceClass,
     SensorEntity,
@@ -16,44 +17,21 @@ from homeassistant.components.sensor import (
 )
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import (
-    CONF_ALIAS,
-    CONF_HOST,
-    CONF_PASSWORD,
-    CONF_USERNAME,
     PERCENTAGE,
     UnitOfEnergy,
     UnitOfLength,
-    UnitOfPower,
     UnitOfSpeed,
     UnitOfTemperature,
     UnitOfTime,
 )
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.helpers.update_coordinator import (
-    CoordinatorEntity,
-    # DataUpdateCoordinator,
-)
+from homeassistant.helpers.typing import StateType
+from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .api import MyFiskerAPI
-from .const import CLIMATE_CONTROL_SEAT_HEAT, DOMAIN
+from .const import CLIMATE_CONTROL_SEAT_HEAT, DOMAIN, LIST_CLIMATE_CONTROL_SEAT_HEAT
 
 _LOGGER = logging.getLogger(__name__)
-
-
-@dataclass
-class FiskerEntityDescription(SensorEntityDescription):
-    """Describes MyFisker ID sensor entity."""
-
-    def __init__(self, key, name, icon, native_unit_of_measurement, value):
-        self.key = key
-        self.name = name
-        self.icon = icon
-        self.native_unit_of_measurement = native_unit_of_measurement
-        self.value = value
-
-    def get_value(self, data):
-        return self.value(data, self.key)
 
 
 async def async_setup_entry(
@@ -62,16 +40,6 @@ async def async_setup_entry(
     _LOGGER.debug("Setup sensors")
 
     my_Fisker_data = hass.data[DOMAIN][entry.entry_id]
-
-    # data = entry.data
-    # myFiskerApi = MyFiskerAPI(data[CONF_USERNAME], data[CONF_PASSWORD])
-    # await myFiskerApi.GetAuthTokenAsync()
-
-    # Glostrup:
-    # Fetch initial data so we have data when entities subscribe
-    #    coordinator = MyFiskerCoordinator(hass, myFiskerApi, data[CONF_ALIAS])
-
-    #    await coordinator.async_config_entry_first_refresh()
 
     coordinator = my_Fisker_data._coordinator
 
@@ -114,6 +82,10 @@ class FiskerSensor(CoordinatorEntity, SensorEntity):
         if sensor.native_unit_of_measurement:
             self._attr_native_unit_of_measurement = sensor.native_unit_of_measurement
             self._attr_state_class = SensorStateClass.MEASUREMENT
+        else:
+            if "seat_heat" in self.entity_description.key:
+                self.options = LIST_CLIMATE_CONTROL_SEAT_HEAT
+                self.device_class = SensorDeviceClass.ENUM
 
     @property
     def device_info(self):
@@ -127,22 +99,44 @@ class FiskerSensor(CoordinatorEntity, SensorEntity):
             },
             "manufacturer": "Fisker inc.",
             "model": "Fisker (Ocean)",
-            "name": self._coordinator._alias,  # self._data.get_name(),
+            "name": self._coordinator._alias,
         }
 
     @callback
     def _handle_coordinator_update(self) -> None:
         """Handle updated data from the coordinator."""
-        # self._attr_is_on = 12334  # self.coordinator.data[self.idx]["state"]
+
+        value = self._coordinator.data[self.idx[1]]
+        data_available = True
 
         if "seat_heat" in self.entity_description.key:
-            self.mode = CLIMATE_CONTROL_SEAT_HEAT.get(
-                self.state, CLIMATE_CONTROL_SEAT_HEAT[0]
-            )
-            self._attr_native_value = self.mode[0]
+            self._attr_native_value = CLIMATE_CONTROL_SEAT_HEAT[value][0]
+        elif "battery_max_miles" in self.entity_description.key:
+            batt = self._coordinator.data["battery_percent"]
+            if (value < 10) and (
+                batt > 10
+            ):  # work around to avoid vehicle sometimes reporting '0 km' remaining
+                self._attr_native_value = None
+                data_available = False
+            else:
+                self._attr_native_value = value
+        else:
+            self._attr_native_value = value
 
-        self._attr_available = True
-        self._attr_is_on = True
+        # if "battery_max_miles" in self.entity_description.key:
+        #     batt = self._coordinator.data["battery_percent"]
+        #     if (value < 10) and (
+        #         batt > 10
+        #     ):  # work around to avoid vehicle sometimes reporting '0 km' remaining
+        #         self._attr_native_value = None
+        #         data_available = False
+        #     else:
+        #         self._attr_native_value = value
+        # else:
+        #     self._attr_native_value = value
+
+        self._attr_available = data_available
+
         self.async_write_ha_state()
 
     @property
@@ -150,23 +144,16 @@ class FiskerSensor(CoordinatorEntity, SensorEntity):
         return False
 
     @property
+    def friendly_name(self):
+        return self.entity_description.name
+
+    @property
     def state(self):
         try:
-            state = self.entity_description.get_value(self.coordinator.data)
+            state = self._attr_native_value
         except (KeyError, ValueError):
             return None
         return state
-
-    # async def async_turn_on(self, **kwargs):
-    #     """Turn the light on.
-
-    #     Example method how to request data updates.
-    #     """
-    #     # Do the turning on.
-    #     # ...
-
-    #     # Update the data
-    #     await self.coordinator.async_request_refresh()
 
 
 # Get an item by its key
@@ -276,76 +263,6 @@ SENSORS: tuple[SensorEntityDescription, ...] = (
         value=lambda data, key: data[key],
     ),
     FiskerEntityDescription(
-        key="climate_control_steering_wheel_heat",
-        name="Steering wheel heat",
-        icon="mdi:steering",
-        native_unit_of_measurement=None,
-        value=lambda data, key: data[key],
-    ),
-    FiskerEntityDescription(
-        key="door_locks_all",
-        name="Door locks all",
-        icon="mdi:car-door-lock",
-        native_unit_of_measurement=None,
-        value=lambda data, key: data[key],
-    ),
-    FiskerEntityDescription(
-        key="door_locks_driver",
-        name="Door locks driver",
-        icon="mdi:car-door-lock",
-        native_unit_of_measurement=None,
-        value=lambda data, key: data[key],
-    ),
-    FiskerEntityDescription(
-        key="doors_hood",
-        name="Doors hood",
-        icon="mdi:car-door-lock",
-        native_unit_of_measurement=None,
-        value=lambda data, key: data[key],
-    ),
-    FiskerEntityDescription(
-        key="doors_left_front",
-        name="Doors left front",
-        icon="mdi:car-door-lock",
-        native_unit_of_measurement=None,
-        value=lambda data, key: data[key],
-    ),
-    FiskerEntityDescription(
-        key="doors_left_rear",
-        name="Doors left rear",
-        icon="mdi:car-door-lock",
-        native_unit_of_measurement=None,
-        value=lambda data, key: data[key],
-    ),
-    FiskerEntityDescription(
-        key="doors_right_front",
-        name="Doors right front",
-        icon="mdi:car-door-lock",
-        native_unit_of_measurement=None,
-        value=lambda data, key: data[key],
-    ),
-    FiskerEntityDescription(
-        key="doors_right_rear",
-        name="Doors right rear",
-        icon="mdi:car-door-lock",
-        native_unit_of_measurement=None,
-        value=lambda data, key: data[key],
-    ),
-    FiskerEntityDescription(
-        key="doors_trunk",
-        name="Doors trunk",
-        icon="mdi:car-door-lock",
-        native_unit_of_measurement=None,
-        value=lambda data, key: data[key],
-    ),
-    FiskerEntityDescription(
-        key="gear_in_park",
-        name="Gear in park",
-        icon="mdi:car-brake-parking",
-        native_unit_of_measurement=None,
-        value=lambda data, key: data[key],
-    ),
-    FiskerEntityDescription(
         key="ip",
         name="IP address",
         icon="mdi:ip",
@@ -374,22 +291,8 @@ SENSORS: tuple[SensorEntityDescription, ...] = (
         value=lambda data, key: data[key],
     ),
     FiskerEntityDescription(
-        key="online",
-        name="online State",
-        icon="mdi:car-connected",
-        native_unit_of_measurement=None,
-        value=lambda data, key: data[key],
-    ),
-    FiskerEntityDescription(
-        key="online_hmi",
-        name="Online hmi",
-        icon="mdi:car-connected",
-        native_unit_of_measurement=None,
-        value=lambda data, key: data[key],
-    ),
-    FiskerEntityDescription(
         key="trex_version",
-        name="trex version",
+        name="Trex version",
         icon="mdi:car-info",
         native_unit_of_measurement=None,
         value=lambda data, key: data[key],
@@ -410,63 +313,63 @@ SENSORS: tuple[SensorEntityDescription, ...] = (
     ),
     FiskerEntityDescription(
         key="vin",
-        name="Vehicle identification no",
+        name="VIN no",
         icon="mdi:car-info",
         native_unit_of_measurement=None,
         value=lambda data, key: data[key],
     ),
     FiskerEntityDescription(
         key="windows_left_front",
-        name="windows_left_front",
+        name="Window front left",
         icon="mdi:car-door",
         native_unit_of_measurement=None,
         value=lambda data, key: data[key],
     ),
     FiskerEntityDescription(
         key="windows_left_rear",
-        name="windows_left_rear",
+        name="window rear left",
         icon="mdi:car-door",
         native_unit_of_measurement=None,
         value=lambda data, key: data[key],
     ),
     FiskerEntityDescription(
         key="windows_left_rear_quarter",
-        name="windows_left_rear_quarter",
+        name="Window rear quarter left",
         icon="mdi:car-door",
         native_unit_of_measurement=None,
         value=lambda data, key: data[key],
     ),
     FiskerEntityDescription(
         key="windows_rear_windshield",
-        name="windows_rear_windshield",
+        name="window windshield rear",
         icon="mdi:car-door",
         native_unit_of_measurement=None,
         value=lambda data, key: data[key],
     ),
     FiskerEntityDescription(
         key="windows_right_front",
-        name="windows_right_front",
+        name="Window front right",
         icon="mdi:car-door",
         native_unit_of_measurement=None,
         value=lambda data, key: data[key],
     ),
     FiskerEntityDescription(
         key="windows_right_rear",
-        name="windows_right_rear",
+        name="Window rear right",
         icon="mdi:car-door",
         native_unit_of_measurement=None,
         value=lambda data, key: data[key],
     ),
     FiskerEntityDescription(
         key="windows_right_rear_quarter",
-        name="windows_right_rear_quarter",
+        name="Window rear quarter right",
         icon="mdi:car-door",
         native_unit_of_measurement=None,
         value=lambda data, key: data[key],
     ),
     FiskerEntityDescription(
         key="windows_sunroof",
-        name="windows_sunroof",
+        name="Window Sunroof",
         icon="mdi:car-select",
         native_unit_of_measurement=None,
         value=lambda data, key: data[key],
