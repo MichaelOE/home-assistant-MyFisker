@@ -34,7 +34,7 @@ PLATFORMS: list[Platform] = [
 
 
 async def async_setup(hass: HomeAssistant, config: dict):
-    """Set up the StecaGrid component."""
+    """Set up the My Fisker component."""
 
     hass.data[DOMAIN] = {}
     return True
