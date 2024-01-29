@@ -2,9 +2,11 @@
 from __future__ import annotations
 
 import asyncio.timeouts
+from dataclasses import dataclass
 
 import logging
 from datetime import timedelta
+from homeassistant.components.sensor import SensorEntityDescription
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_PASSWORD, CONF_USERNAME, CONF_ALIAS, Platform
 from homeassistant.core import HomeAssistant
@@ -25,9 +27,10 @@ _LOGGER = logging.getLogger(__name__)
 # TODO List the platforms that you want to support.
 # For your initial PR, limit it to 1 platform.
 PLATFORMS: list[Platform] = [
-    #Platform.BUTTON, 
-    Platform.SENSOR
-    ]
+    # Platform.BUTTON,
+    Platform.BINARY_SENSOR,
+    Platform.SENSOR,
+]
 
 
 async def async_setup(hass: HomeAssistant, config: dict):
@@ -127,3 +130,18 @@ class MyFiskerCoordinator(DataUpdateCoordinator):
         #     raise ConfigEntryAuthFailed from err
         # except ApiError as err:
         #     raise UpdateFailed(f"Error communicating with API: {err}")
+
+
+@dataclass
+class FiskerEntityDescription(SensorEntityDescription):
+    """Describes MyFisker ID sensor entity."""
+
+    def __init__(self, key, name, icon, native_unit_of_measurement, value):
+        self.key = key
+        self.name = name
+        self.icon = icon
+        self.native_unit_of_measurement = native_unit_of_measurement
+        self.value = value
+
+    def get_value(self, data):
+        return self.value(data, self.key)
