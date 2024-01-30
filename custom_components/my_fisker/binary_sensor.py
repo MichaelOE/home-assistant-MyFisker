@@ -196,7 +196,7 @@ BINARY_SENSORS: tuple[SensorEntityDescription, ...] = (
     ),
     FiskerEntityDescription(
         key="online",
-        name="online State",
+        name="Online State",
         icon="mdi:car-connected",
         native_unit_of_measurement=None,
         value=lambda data, key: data[key],
