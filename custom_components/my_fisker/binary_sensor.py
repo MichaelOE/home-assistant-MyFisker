@@ -1,6 +1,6 @@
 import logging
 
-from homeassistant.components.my_fisker import FiskerEntityDescription
+from my_fisker import FiskerEntityDescription
 from homeassistant.components.sensor import SensorEntity, SensorEntityDescription
 from homeassistant.components.sensor.const import SensorDeviceClass
 from homeassistant.config_entries import ConfigEntry
