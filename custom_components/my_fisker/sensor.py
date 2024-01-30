@@ -113,27 +113,14 @@ class FiskerSensor(CoordinatorEntity, SensorEntity):
             self._attr_native_value = CLIMATE_CONTROL_SEAT_HEAT[value][0]
         elif "battery_max_miles" in self.entity_description.key:
             batt = self._coordinator.data["battery_percent"]
-            if (value < 10) and (
-                batt > 10
-            ):  # work around to avoid vehicle sometimes reporting '0 km' remaining
+            _LOGGER.debug(f"battery_data: max_miles={value}, percent:{batt}")
+            if (value <= 3 and batt >= 3):  # work around to avoid vehicle sometimes reporting '0 km' remaining
                 self._attr_native_value = None
                 data_available = False
             else:
                 self._attr_native_value = value
         else:
             self._attr_native_value = value
-
-        # if "battery_max_miles" in self.entity_description.key:
-        #     batt = self._coordinator.data["battery_percent"]
-        #     if (value < 10) and (
-        #         batt > 10
-        #     ):  # work around to avoid vehicle sometimes reporting '0 km' remaining
-        #         self._attr_native_value = None
-        #         data_available = False
-        #     else:
-        #         self._attr_native_value = value
-        # else:
-        #     self._attr_native_value = value
 
         self._attr_available = data_available
 
