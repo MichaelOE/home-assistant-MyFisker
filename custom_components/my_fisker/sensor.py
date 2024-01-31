@@ -8,7 +8,6 @@ import json
 import logging
 from typing import cast
 
-from my_fisker import FiskerEntityDescription
 from homeassistant.components.sensor import (
     SensorDeviceClass,
     SensorEntity,
