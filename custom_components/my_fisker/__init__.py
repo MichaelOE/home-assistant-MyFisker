@@ -3,24 +3,17 @@ from __future__ import annotations
 
 import asyncio.timeouts
 from dataclasses import dataclass
-
-import logging
 from datetime import timedelta
+import logging
+
 from homeassistant.components.sensor import SensorEntityDescription
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import CONF_PASSWORD, CONF_USERNAME, CONF_ALIAS, Platform
+from homeassistant.const import CONF_ALIAS, CONF_PASSWORD, CONF_USERNAME, Platform
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.aiohttp_client import async_get_clientsession
-
-from homeassistant.helpers.update_coordinator import (
-    CoordinatorEntity,
-    DataUpdateCoordinator,
-)
-
-
-from .const import DOMAIN
+from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
 from .api import MyFiskerAPI
+from .const import DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -137,6 +130,7 @@ class FiskerEntityDescription(SensorEntityDescription):
     """Describes MyFisker ID sensor entity."""
 
     def __init__(self, key, name, icon, native_unit_of_measurement, value):
+        super().__init__(key)
         self.key = key
         self.name = name
         self.icon = icon
