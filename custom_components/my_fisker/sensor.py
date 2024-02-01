@@ -1,12 +1,7 @@
 """Platform for sensor integration."""
 from __future__ import annotations
 
-from collections.abc import Callable
-from dataclasses import dataclass
-from datetime import timedelta
-import json
 import logging
-from typing import cast
 
 from homeassistant.components.sensor import (
     SensorDeviceClass,
@@ -25,9 +20,9 @@ from homeassistant.const import (
 )
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.helpers.typing import StateType
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
+from . import FiskerEntityDescription
 from .const import CLIMATE_CONTROL_SEAT_HEAT, DOMAIN, LIST_CLIMATE_CONTROL_SEAT_HEAT
 
 _LOGGER = logging.getLogger(__name__)
@@ -83,8 +78,8 @@ class FiskerSensor(CoordinatorEntity, SensorEntity):
             self._attr_state_class = SensorStateClass.MEASUREMENT
         else:
             if "seat_heat" in self.entity_description.key:
-                self.options = LIST_CLIMATE_CONTROL_SEAT_HEAT
-                self.device_class = SensorDeviceClass.ENUM
+                self._attr_options = LIST_CLIMATE_CONTROL_SEAT_HEAT
+                self._attr_device_class = SensorDeviceClass.ENUM
 
     @property
     def device_info(self):

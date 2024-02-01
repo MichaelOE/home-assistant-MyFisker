@@ -1,24 +1,13 @@
 import logging
 
-from homeassistant.components.sensor import SensorEntity, SensorEntityDescription
-from homeassistant.components.sensor.const import SensorDeviceClass
+from homeassistant.components.sensor import SensorEntityDescription
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
-from homeassistant.helpers.entity import Entity
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.helpers.update_coordinator import (
-    CoordinatorEntity,
-    DataUpdateCoordinator,
-)
+from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import (
-    CLIMATE_CONTROL_SEAT_HEAT,
-    CLIMATE_CONTROL_STEERING_WHEEL_HEAT,
-    DOMAIN,
-    DOOR_LOCK,
-    GEAR_IN_PARK,
-    LIST_CLIMATE_CONTROL_STEERING_WHEEL_HEAT,
-)
+from . import FiskerEntityDescription
+from .const import CLIMATE_CONTROL_STEERING_WHEEL_HEAT, DOMAIN, DOOR_LOCK, GEAR_IN_PARK
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -59,9 +48,9 @@ class FiskerSensor(CoordinatorEntity):
 
         _LOGGER.info(self._attr_unique_id)
 
-        if "climate_control_steering_wheel_heat" in self.entity_description.key:
-            self.options = LIST_CLIMATE_CONTROL_STEERING_WHEEL_HEAT
-            self.device_class = SensorDeviceClass.ENUM
+        #if "climate_control_steering_wheel_heat" in self.entity_description.key:
+            #self.options = LIST_CLIMATE_CONTROL_STEERING_WHEEL_HEAT
+            #self.device_class = SensorDeviceClass.ENUM
 
     @property
     def device_info(self):
