@@ -4,7 +4,7 @@
   "codeowners": [
     "@MichaelOE"
   ],
-  "version": "0.0.4",
+  "version": "0.0.5",
   "config_flow": true,
   "dependencies": [],
   "documentation": "https://www.home-assistant.io/integrations/my_fisker",
