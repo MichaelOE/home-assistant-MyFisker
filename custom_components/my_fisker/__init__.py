@@ -113,7 +113,8 @@ class MyFiskerCoordinator(DataUpdateCoordinator):
         try:
             async with asyncio.timeout(30):
                 await self.my_fisker_api.GetAuthTokenAsync()
-                retData = await self.my_fisker_api.fetch_data()
+                retData = await self.my_fisker_api.GetDigitalTwin()
+
                 return retData
         except:
             _LOGGER.error("MyCoordinator _async_update_data failed")
@@ -137,5 +138,8 @@ class FiskerEntityDescription(SensorEntityDescription):
         self.native_unit_of_measurement = native_unit_of_measurement
         self.value = value
 
-    def get_value(self, data):
+    def get_digital_twin_value(self, data):
         return self.value(data, self.key)
+
+    def get_car_settings_value(self, data):
+        return self.value(data, self.key.replace("car_settings_", ""))

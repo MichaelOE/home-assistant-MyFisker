@@ -48,9 +48,9 @@ class FiskerSensor(CoordinatorEntity):
 
         _LOGGER.info(self._attr_unique_id)
 
-        #if "climate_control_steering_wheel_heat" in self.entity_description.key:
-            #self.options = LIST_CLIMATE_CONTROL_STEERING_WHEEL_HEAT
-            #self.device_class = SensorDeviceClass.ENUM
+        # if "climate_control_steering_wheel_heat" in self.entity_description.key:
+        # self.options = LIST_CLIMATE_CONTROL_STEERING_WHEEL_HEAT
+        # self.device_class = SensorDeviceClass.ENUM
 
     @property
     def device_info(self):

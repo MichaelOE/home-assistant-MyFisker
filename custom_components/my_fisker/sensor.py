@@ -22,7 +22,7 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from . import FiskerEntityDescription
+from . import FiskerEntityDescription, MyFiskerCoordinator
 from .const import CLIMATE_CONTROL_SEAT_HEAT, DOMAIN, LIST_CLIMATE_CONTROL_SEAT_HEAT
 
 _LOGGER = logging.getLogger(__name__)
@@ -47,6 +47,9 @@ async def async_setup_entry(
         else:
             entities.append(FiskerSensor(coordinator, idx, sens, my_Fisker_data))
 
+    for sensor in SENSORS_CAR_SETTINGS:
+        entities.append(FiskerSensor(coordinator, 100, sensor, my_Fisker_data))
+
     # Add entities to Home Assistant
     async_add_entities(entities)
 
@@ -59,19 +62,24 @@ async def async_setup_platform(hass, config, async_add_entities, discovery_info=
 class FiskerSensor(CoordinatorEntity, SensorEntity):
     # An entity using CoordinatorEntity.
 
-    def __init__(self, coordinator, idx, sensor: FiskerEntityDescription, client):
+    def __init__(
+        self,
+        coordinator: MyFiskerCoordinator,
+        idx,
+        sensor: FiskerEntityDescription,
+        client,
+    ):
         """Pass coordinator to CoordinatorEntity."""
         super().__init__(coordinator, context=idx)
         self.idx = idx
         # self._sensor = sensor
         self._data = client
         self._coordinator = coordinator
-        self.entity_description = sensor
+        self.entity_description: FiskerEntityDescription = sensor
         self._attr_unique_id = f"{self._coordinator.data['vin']}_{sensor.key}"
         self._attr_name = f"{self._coordinator._alias} {sensor.name}"
 
         _LOGGER.info(self._attr_unique_id)
-        # self.icon = self._sensor.icon
 
         if sensor.native_unit_of_measurement:
             self._attr_native_unit_of_measurement = sensor.native_unit_of_measurement
@@ -100,26 +108,27 @@ class FiskerSensor(CoordinatorEntity, SensorEntity):
     def _handle_coordinator_update(self) -> None:
         """Handle updated data from the coordinator."""
 
-        value = self._coordinator.data[self.idx[1]]
-        data_available = True
+        if "car_settings" in self.entity_description.key:
+            value = "n/a"
+            try:
+                carSetting = self._coordinator.my_fisker_api.GetCarSettings()
+                value = self.entity_description.get_car_settings_value(carSetting)
+                data_available = True
+            except:
+                _LOGGER.debug("car_settings not available")
 
-        if "seat_heat" in self.entity_description.key:
-            self._attr_native_value = CLIMATE_CONTROL_SEAT_HEAT[value][0]
-        elif "battery_max_miles" in self.entity_description.key:
-            batt = self._coordinator.data["battery_percent"]
-            _LOGGER.debug(f"battery_data: max_miles={value}, percent:{batt}")
-            if (
-                value <= 3 and batt >= 3
-            ):  # work around to avoid vehicle sometimes reporting '0 km' remaining
-                self._attr_native_value = None
-                data_available = False
-            else:
-                self._attr_native_value = value
-        else:
             self._attr_native_value = value
 
-        self._attr_available = data_available
+        else:
+            value = self._coordinator.data[self.idx[1]]
+            data_available = True
 
+            if "seat_heat" in self.entity_description.key:
+                self._attr_native_value = CLIMATE_CONTROL_SEAT_HEAT[value][0]
+            else:
+                self._attr_native_value = value
+
+        self._attr_available = data_available
         self.async_write_ha_state()
 
     @property
@@ -141,12 +150,12 @@ class FiskerSensor(CoordinatorEntity, SensorEntity):
 
 # Get an item by its key
 def get_sensor_by_key(key):
-    for sensor in SENSORS:
+    for sensor in SENSORS_DIGITAL_TWIN:
         if sensor.key == key:
             return sensor
 
 
-SENSORS: tuple[SensorEntityDescription, ...] = (
+SENSORS_DIGITAL_TWIN: tuple[SensorEntityDescription, ...] = (
     FiskerEntityDescription(
         key="battery_avg_cell_temp",
         name="Battery avg. cell temp",
@@ -354,6 +363,30 @@ SENSORS: tuple[SensorEntityDescription, ...] = (
         key="windows_sunroof",
         name="Window Sunroof",
         icon="mdi:car-select",
+        native_unit_of_measurement=None,
+        value=lambda data, key: data[key],
+    ),
+)
+
+SENSORS_CAR_SETTINGS: tuple[SensorEntityDescription, ...] = (
+    FiskerEntityDescription(
+        key="car_settings_0_value",
+        name="OS version",
+        icon="mdi:car-info",
+        native_unit_of_measurement=None,
+        value=lambda data, key: data[key],
+    ),
+    FiskerEntityDescription(
+        key="car_settings_0_updated",
+        name="OS date",
+        icon="mdi:car-info",
+        native_unit_of_measurement=None,
+        value=lambda data, key: data[key],
+    ),
+    FiskerEntityDescription(
+        key="car_settings_1_value",
+        name="Flash pack no",
+        icon="mdi:car-info",
         native_unit_of_measurement=None,
         value=lambda data, key: data[key],
     ),

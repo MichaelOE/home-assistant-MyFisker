@@ -26,6 +26,7 @@ class MyFiskerAPI:
 
         self._token = ""
         self._timeout = aiohttp.ClientTimeout(total=API_TIMEOUT)
+        self.data = {}
 
     async def GetAuthTokenAsync(self):
         params = {"username": self._username, "password": self._password}
@@ -46,94 +47,27 @@ class MyFiskerAPI:
     async def tokenReturn(self):
         return self._token
 
-    async def fetch_data(self):
-        ret = self.flatten_json(
+    def GetCarSettings(self):
+        try:
+            data = json.loads(self.data["car_settings"])
+            return self.flatten_json(data["data"])
+        except NameError:
+            _LOGGER.warning("self.data['car_settings'] is not available")
+            return None
+
+    async def GetDigitalTwin(self):
+        self.data["digital_twin"] = self.flatten_json(
             self.ParseDigitalTwinResponse(
-                await self.GetWebsocketResponse("digital_twin")
+                await self.__GetWebsocketResponse("digital_twin")
             )
         )
-        return ret
+        return self.data["digital_twin"]
 
     async def GetProfiles(self):
-        return self.ParseProfilesResponse(await self.GetWebsocketResponse("profiles"))
-
-    async def GetWebsocketResponse(self, responseToReturn: str):
-        HasAUTH = False
-        HasVIN = HasAUTH
-
-        async with aiohttp.ClientSession() as session:
-            async with session.ws_connect(WSS_URL, headers=headers) as ws:
-                await ws.send_str(json.dumps(self.GenerateVerifyRequest()))
-                while True:
-                    response = await ws.receive_str()
-                    handler = json.loads(response)["handler"]
-
-                    if handler == responseToReturn:
-                        try:
-                            await ws.close()
-                        except Exception as e:
-                            _LOGGER.debug(
-                                f"Error occurred while closing WebSocket: {e}"
-                            )
-                        self.ParseDigitalTwinResponse(response)
-                        return response
-
-                    if HasAUTH is not True:
-                        if handler == "verify":
-                            HasAUTH = (
-                                json.loads(response)["data"]["authenticated"] is True
-                            )
-                            # Send a message
-                            # _LOGGER.debug(f"Sending 'GenerateProfilesRequest'")
-                            await ws.send_str(
-                                json.dumps(self.GenerateProfilesRequest())
-                            )
-
-                    if HasAUTH is True and HasVIN is not True:
-                        if handler == "profiles":
-                            vin = self.ParseProfilesResponse(response)
-                            # print (f"vin = {vin}")
-                            if vin != "":
-                                self.HasVIN = True
-                                # Send a message
-                                _LOGGER.debug(
-                                    f"Auth & VIN ok - Sending 'DigitalTwinRequest' to vin={vin}"
-                                )
-                                await ws.send_str(
-                                    json.dumps(self.DigitalTwinRequest(vin))
-                                )
-
-                    if HasAUTH is True and HasVIN is True:
-                        # _LOGGER.debug(f"Received message: {message}")
-                        if handler == responseToReturn:
-                            self.ParseDigitalTwinResponse(response)
-                            _LOGGER.error(response)
-                            try:
-                                await ws.close()
-                            except Exception as e:
-                                _LOGGER.error(
-                                    f"Error occurred while closing WebSocket: {e}"
-                                )
-
-                            return response
-
-    def flatten_json(self, jsonIn):
-        out = {}
-
-        def flatten(x, name=""):
-            if type(x) is dict:
-                for a in x:
-                    flatten(x[a], name + a + "_")
-            elif type(x) is list:
-                i = 0
-                for a in x:
-                    flatten(a, name + str(i) + "_")
-                    i += 1
-            else:
-                out[name[:-1]] = x
-
-        flatten(jsonIn)
-        return out
+        self.data["profiles"] = self.ParseProfilesResponse(
+            await self.__GetWebsocketResponse("profiles")
+        )
+        return self.data["profiles"]
 
     def ParseDigitalTwinResponse(self, jsonMsg):
         # _LOGGER.debug('Start ParseDigitalTwinResponse()')
@@ -225,6 +159,86 @@ class MyFiskerAPI:
         messageData["data"] = data
         messageData["handler"] = "remote_command"
         return messageData
+
+    async def __GetWebsocketResponse(self, responseToReturn: str):
+        HasAUTH = False
+        HasVIN = HasAUTH
+
+        async with aiohttp.ClientSession() as session:
+            async with session.ws_connect(WSS_URL, headers=headers) as ws:
+                await ws.send_str(json.dumps(self.GenerateVerifyRequest()))
+                while True:
+                    response = await ws.receive_str()
+                    handler = json.loads(response)["handler"]
+
+                    if handler == "car_settings":
+                        self.data["car_settings"] = response
+
+                    if handler == responseToReturn:
+                        try:
+                            await ws.close()
+                        except Exception as e:
+                            _LOGGER.debug(
+                                f"Error occurred while closing WebSocket: {e}"
+                            )
+                        return response
+
+                    if HasAUTH is not True:
+                        if handler == "verify":
+                            HasAUTH = (
+                                json.loads(response)["data"]["authenticated"] is True
+                            )
+                            # Send a message
+                            # _LOGGER.debug(f"Sending 'GenerateProfilesRequest'")
+                            await ws.send_str(
+                                json.dumps(self.GenerateProfilesRequest())
+                            )
+
+                    if HasAUTH is True and HasVIN is not True:
+                        if handler == "profiles":
+                            vin = self.ParseProfilesResponse(response)
+                            # print (f"vin = {vin}")
+                            if vin != "":
+                                self.HasVIN = True
+                                # Send a message
+                                _LOGGER.debug(
+                                    f"Auth & VIN ok - Sending 'DigitalTwinRequest' to vin={vin}"
+                                )
+                                await ws.send_str(
+                                    json.dumps(self.DigitalTwinRequest(vin))
+                                )
+
+                    if HasAUTH is True and HasVIN is True:
+                        # _LOGGER.debug(f"Received message: {message}")
+                        if handler == responseToReturn:
+                            # self.ParseDigitalTwinResponse(response)
+                            _LOGGER.error(response)
+                            try:
+                                await ws.close()
+                            except Exception as e:
+                                _LOGGER.error(
+                                    f"Error occurred while closing WebSocket: {e}"
+                                )
+
+                            return response
+
+    def flatten_json(self, jsonIn):
+        out = {}
+
+        def flatten(x, name=""):
+            if type(x) is dict:
+                for a in x:
+                    flatten(x[a], name + a + "_")
+            elif type(x) is list:
+                i = 0
+                for a in x:
+                    flatten(a, name + str(i) + "_")
+                    i += 1
+            else:
+                out[name[:-1]] = x
+
+        flatten(jsonIn)
+        return out
 
 
 class MyFiskerApiError(Exception):
