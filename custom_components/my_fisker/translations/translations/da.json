@@ -1,0 +1,31 @@
+{
+    "config": {
+        "abort": {
+            "already_configured": "Køretøj er allerede konfigureret"
+        },
+        "error": {
+            "cannot_connect": "Kan ikke forbinde til server, har du valgt korrekt region",
+            "invalid_auth": "Ugyldig authentication",
+            "unknown": "Ukendt fejl"
+        },
+        "step": {
+            "user": {
+                "data": {
+                    "host": "Vært",
+                    "password": "Password",
+                    "username": "Brugernavn"
+                }
+            },
+            "region": {
+                "data": {
+                    "region": "Vælg din region"
+                }
+            },
+            "alias": {
+                "data": {
+                    "alias": "Alias (entity-prefix) til dit Fisker-køretøj"
+                }
+            }
+        }
+    }
+}
