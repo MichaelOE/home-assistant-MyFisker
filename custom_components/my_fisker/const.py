@@ -6,7 +6,8 @@ API_TIMEOUT = 10
 DEFAULT_SCAN_INTERVAL = 60
 
 TOKEN_URL = "https://auth.fiskerdps.com/auth/login"
-WSS_URL = "wss://gw.cec-euprd.fiskerinc.com/mobile"
+WSS_URL_EU = "wss://gw.cec-euprd.fiskerinc.com/mobile"
+WSS_URL_US = "wss://gw.cec-prd.fiskerinc.com/mobile"
 
 HANDLER_COMMAND = "remote_command"
 COMMAND_DOORS_UNLOCK = "doors_unlock"

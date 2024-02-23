@@ -8,6 +8,11 @@
           "password": "[%key:common::config_flow::data::password%]"
         }
       },
+      "region": {
+        "data": {
+          "region": "[%key:common::config_flow::data::region%]"
+        }
+      },
       "alias": {
         "data": {
           "alias": "[%key:common::config_flow::data::alias%]"

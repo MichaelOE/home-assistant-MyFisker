@@ -8,7 +8,13 @@ import logging
 
 from homeassistant.components.sensor import SensorEntityDescription
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import CONF_ALIAS, CONF_PASSWORD, CONF_USERNAME, Platform
+from homeassistant.const import (
+    CONF_ALIAS,
+    CONF_PASSWORD,
+    CONF_REGION,
+    CONF_USERNAME,
+    Platform,
+)
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
@@ -44,7 +50,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     # Glostrup:
     data = entry.data
-    myFiskerApi = MyFiskerAPI(data[CONF_USERNAME], data[CONF_PASSWORD])
+    myFiskerApi = MyFiskerAPI(
+        data[CONF_USERNAME], data[CONF_PASSWORD], data[CONF_REGION]
+    )
     await myFiskerApi.GetAuthTokenAsync()
 
     # Fetch initial data so we have data when entities subscribe
@@ -55,6 +63,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         entry.data[CONF_USERNAME],
         entry.data[CONF_PASSWORD],
         entry.data[CONF_ALIAS],
+        entry.data[CONF_REGION],
         coordinator,
     )
 
@@ -77,13 +86,17 @@ class HassMyFisker:
         username: str,
         password: str,
         alias: str,
+        region: str,
         coordinator: DataUpdateCoordinator,
     ):
         self._username = username
         self._password = password
         self._alias = alias
+        self._region = region
         self._coordinator = coordinator
-        _LOGGER.debug(f"MyFisker __init__{self._username}:{self._alias}")
+        _LOGGER.debug(
+            f"MyFisker __init__{self._username}:{self._alias}, region={self._region}"
+        )
 
     def get_name(self):
         return f"myFisker_{self._username}"

@@ -5,7 +5,7 @@ import logging
 import aiohttp
 
 # import requests
-from .const import API_TIMEOUT, TOKEN_URL, WSS_URL
+from .const import API_TIMEOUT, TOKEN_URL, WSS_URL_EU, WSS_URL_US
 
 # import websockets
 
@@ -19,16 +19,21 @@ vin = ""
 
 
 class MyFiskerAPI:
-    def __init__(self, username: str, password: str):
+    """Handle connection towards Fisker API servers."""
+
+    def __init__(self, username: str, password: str, region: str):
         _LOGGER.debug("MyFiskerAPI init")
         self._username = username
         self._password = password
+        self._region = region
 
         self._token = ""
         self._timeout = aiohttp.ClientTimeout(total=API_TIMEOUT)
         self.data = {}
 
     async def GetAuthTokenAsync(self):
+        """Get the Authentification token from Fisker, is used towards the WebSocket connection."""
+
         params = {"username": self._username, "password": self._password}
         async with aiohttp.ClientSession() as session, session.post(
             TOKEN_URL, data=params
@@ -52,7 +57,7 @@ class MyFiskerAPI:
             data = json.loads(self.data["car_settings"])
             return self.flatten_json(data["data"])
         except NameError:
-            _LOGGER.warning("self.data['car_settings'] is not available")
+            _LOGGER.warning("Self.data['car_settings'] is not available")
             return None
 
     async def GetDigitalTwin(self):
@@ -160,12 +165,23 @@ class MyFiskerAPI:
         messageData["handler"] = "remote_command"
         return messageData
 
+    def __GetRegionURL(self):
+        match self._region:
+            case "EU":
+                return WSS_URL_EU
+            case "US":
+                return WSS_URL_US
+            case _:
+                return WSS_URL_US
+
     async def __GetWebsocketResponse(self, responseToReturn: str):
         HasAUTH = False
         HasVIN = HasAUTH
 
+        wssUrl = self.__GetRegionURL()
+
         async with aiohttp.ClientSession() as session:
-            async with session.ws_connect(WSS_URL, headers=headers) as ws:
+            async with session.ws_connect(wssUrl, headers=headers) as ws:
                 await ws.send_str(json.dumps(self.GenerateVerifyRequest()))
                 while True:
                     response = await ws.receive_str()

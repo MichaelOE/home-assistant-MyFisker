@@ -36,6 +36,8 @@ async def async_setup_entry(
 
 
 class FiskerSensor(CoordinatorEntity):
+    """Sensor used by all Fisker entities, inherits from CoordinatorEntity."""
+
     def __init__(self, coordinator, idx, sensor: FiskerEntityDescription, client):
         """Pass coordinator to CoordinatorEntity."""
         super().__init__(coordinator, context=idx)
