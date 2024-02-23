@@ -16,6 +16,7 @@ Add custom repository: https://github.com/MichaelOE/home-assistant-MyFisker
 ## Setup
 - Username: The same as you use in your 'My Fisker'
 - Password: The same as you use in your 'My Fisker'
+- Region: Select your region, used to determine the datacenter URL
 - Alias: Prefix, which is used on all entities created by the integration
 
 # Usage
