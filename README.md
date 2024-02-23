@@ -1,4 +1,5 @@
 # Fisker Ocean component for Home Assistant
+[![BuyMeCoffee][buymecoffeebadge]][michaelo-buymecoffee]
 
 Custom component for getting information about your Fisker Ocean presented in Home Assistant.
 
@@ -22,3 +23,6 @@ Add custom repository: https://github.com/MichaelOE/home-assistant-MyFisker
 # Usage
 The integration currently only supports reading of values.
 It is possible in the future to add 'commands' to the vehicle.
+
+[buymecoffeebadge]: https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png
+[michaelo-buymecoffee]: https://www.buymeacoffee.com/michaelo
