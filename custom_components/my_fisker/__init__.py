@@ -143,11 +143,15 @@ class MyFiskerCoordinator(DataUpdateCoordinator):
 class FiskerEntityDescription(SensorEntityDescription):
     """Describes MyFisker ID sensor entity."""
 
-    def __init__(self, key, name, icon, native_unit_of_measurement, value):
+    def __init__(
+        self, key, name, icon, device_class, native_unit_of_measurement, value
+    ):
         super().__init__(key)
         self.key = key
         self.name = name
         self.icon = icon
+        if device_class is not None:
+            self.device_class = device_class
         self.native_unit_of_measurement = native_unit_of_measurement
         self.value = value
 
