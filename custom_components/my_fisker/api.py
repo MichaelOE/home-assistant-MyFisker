@@ -55,7 +55,7 @@ class MyFiskerAPI:
     def GetCarSettings(self):
         try:
             data = json.loads(self.data["car_settings"])
-            return self.flatten_json(data["data"])
+            return data  # self.flatten_json(data["data"])
         except NameError:
             _LOGGER.warning("Self.data['car_settings'] is not available")
             return None
