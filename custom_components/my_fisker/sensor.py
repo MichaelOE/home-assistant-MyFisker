@@ -111,10 +111,18 @@ class FiskerSensor(CoordinatorEntity, SensorEntity):
         """Handle updated data from the coordinator."""
 
         if "car_settings" in self.entity_description.key:
-            value = "n/a"
             try:
+                value = "n/a"
                 carSetting = self._coordinator.my_fisker_api.GetCarSettings()
+                # key = self.entity_description.key.replace("car_settings_", "")
+
                 value = self.entity_description.get_car_settings_value(carSetting)
+                # value = self.findInArray(carSetting, key.replace("_updated", ""))
+                if "_updated" in self.entity_description.key:
+                    value = value["updated"]
+                else:
+                    value = value["value"]
+
                 data_available = True
             except:
                 _LOGGER.debug("car_settings not available")
@@ -402,7 +410,7 @@ SENSORS_DIGITAL_TWIN: tuple[SensorEntityDescription, ...] = (
 
 SENSORS_CAR_SETTINGS: tuple[SensorEntityDescription, ...] = (
     FiskerEntityDescription(
-        key="car_settings_0_value",
+        key="car_settings_os_version",
         name="OS version",
         icon="mdi:car-info",
         device_class=None,
@@ -410,16 +418,40 @@ SENSORS_CAR_SETTINGS: tuple[SensorEntityDescription, ...] = (
         value=lambda data, key: data[key],
     ),
     FiskerEntityDescription(
-        key="car_settings_0_updated",
-        name="OS date",
+        key="car_settings_os_version_updated",
+        name="OS version date",
         icon="mdi:car-info",
         device_class=None,
         native_unit_of_measurement=None,
         value=lambda data, key: data[key],
     ),
     FiskerEntityDescription(
-        key="car_settings_1_value",
+        key="car_settings_flashpack_number",
         name="Flash pack no",
+        icon="mdi:car-info",
+        device_class=None,
+        native_unit_of_measurement=None,
+        value=lambda data, key: data[key],
+    ),
+    FiskerEntityDescription(
+        key="car_settings_flashpack_number_updated",
+        name="Flash pack no date",
+        icon="mdi:car-info",
+        device_class=None,
+        native_unit_of_measurement=None,
+        value=lambda data, key: data[key],
+    ),
+    FiskerEntityDescription(
+        key="car_settings_BODY_COLOR",
+        name="Body color",
+        icon="mdi:car-info",
+        device_class=None,
+        native_unit_of_measurement=None,
+        value=lambda data, key: data[key],
+    ),
+    FiskerEntityDescription(
+        key="car_settings_DELIVERY_DESTINATION",
+        name="Delivery country",
         icon="mdi:car-info",
         device_class=None,
         native_unit_of_measurement=None,

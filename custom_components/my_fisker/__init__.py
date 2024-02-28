@@ -159,4 +159,18 @@ class FiskerEntityDescription(SensorEntityDescription):
         return self.value(data, self.key)
 
     def get_car_settings_value(self, data):
-        return self.value(data, self.key.replace("car_settings_", ""))
+        return self.findInArray(
+            data, self.key.replace("car_settings_", "").replace("_updated", "")
+        )
+        # return self.value(data, self.key.replace("car_settings_", ""))
+
+    def findInArray(self, jsonArray: str, nameToSearch: str):
+        # Loop through the array
+        for item in jsonArray["data"]:
+            if item["name"] == nameToSearch:
+                value = item["value"]
+                name = item["name"]
+                return item
+                break
+        else:
+            return None
