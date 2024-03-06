@@ -4,7 +4,7 @@
   "codeowners": [
     "@MichaelOE"
   ],
-  "version": "0.0.9",
+  "version": "0.0.10",
   "config_flow": true,
   "dependencies": [],
   "documentation": "https://github.com/MichaelOE/home-assistant-MyFisker",
