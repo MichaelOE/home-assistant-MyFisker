@@ -29,37 +29,6 @@ from .const import CLIMATE_CONTROL_SEAT_HEAT, DOMAIN, LIST_CLIMATE_CONTROL_SEAT_
 _LOGGER = logging.getLogger(__name__)
 
 
-async def async_setup_entry(
-    hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
-) -> None:
-    _LOGGER.debug("Setup sensors")
-
-    my_Fisker_data = hass.data[DOMAIN][entry.entry_id]
-
-    coordinator = my_Fisker_data._coordinator
-
-    entities: list[FiskerSensor] = []
-
-    # for sensor in SENSORS:
-    for idx in enumerate(coordinator.data):
-        sens = get_sensor_by_key(idx[1])
-        if sens is None:
-            _LOGGER.warning(idx[1])
-        else:
-            entities.append(FiskerSensor(coordinator, idx, sens, my_Fisker_data))
-
-    for sensor in SENSORS_CAR_SETTINGS:
-        entities.append(FiskerSensor(coordinator, 100, sensor, my_Fisker_data))
-
-    # Add entities to Home Assistant
-    async_add_entities(entities)
-
-
-async def async_setup_platform(hass, config, async_add_entities, discovery_info=None):
-    # Code for setting up your platform inside of the event loop
-    _LOGGER.debug("async_setup_platform")
-
-
 class FiskerSensor(CoordinatorEntity, SensorEntity):
     # An entity using CoordinatorEntity.
 
@@ -109,6 +78,8 @@ class FiskerSensor(CoordinatorEntity, SensorEntity):
     @callback
     def _handle_coordinator_update(self) -> None:
         """Handle updated data from the coordinator."""
+
+        data_available = False
 
         if "car_settings" in self.entity_description.key:
             try:
@@ -163,6 +134,37 @@ def get_sensor_by_key(key):
     for sensor in SENSORS_DIGITAL_TWIN:
         if sensor.key == key:
             return sensor
+
+
+async def async_setup_entry(
+    hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
+) -> None:
+    _LOGGER.debug("Setup sensors")
+
+    my_Fisker_data = hass.data[DOMAIN][entry.entry_id]
+
+    coordinator = my_Fisker_data._coordinator
+
+    entities: list[FiskerSensor] = []
+
+    # for sensor in SENSORS:
+    for idx in enumerate(coordinator.data):
+        sens = get_sensor_by_key(idx[1])
+        if sens is None:
+            _LOGGER.warning(idx[1])
+        else:
+            entities.append(FiskerSensor(coordinator, idx, sens, my_Fisker_data))
+
+    for sensor in SENSORS_CAR_SETTINGS:
+        entities.append(FiskerSensor(coordinator, 100, sensor, my_Fisker_data))
+
+    # Add entities to Home Assistant
+    async_add_entities(entities)
+
+
+async def async_setup_platform(hass, config, async_add_entities, discovery_info=None):
+    # Code for setting up your platform inside of the event loop
+    _LOGGER.debug("async_setup_platform")
 
 
 SENSORS_DIGITAL_TWIN: tuple[SensorEntityDescription, ...] = (

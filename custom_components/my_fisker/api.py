@@ -4,10 +4,15 @@ import logging
 
 import aiohttp
 
-# import requests
-from .const import API_TIMEOUT, TOKEN_URL, WSS_URL_EU, WSS_URL_US
-
-# import websockets
+from .const import (
+    API_TIMEOUT,
+    TOKEN_URL,
+    WSS_URL_EU,
+    WSS_URL_US,
+    CAR_SETTINGS,
+    DIGITAL_TWIN,
+    PROFILES,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -15,11 +20,15 @@ headers = {"User-Agent": "MOBILE 1.0.0.0"}
 
 HasAUTH = False
 HasVIN = False
-vin = ""
 
 
 class MyFiskerAPI:
     """Handle connection towards Fisker API servers."""
+
+    # Global variable to store the WebSocket connection
+    global_websocket = None
+
+    vin = ""
 
     def __init__(self, username: str, password: str, region: str):
         _LOGGER.debug("MyFiskerAPI init")
@@ -30,6 +39,18 @@ class MyFiskerAPI:
         self._token = ""
         self._timeout = aiohttp.ClientTimeout(total=API_TIMEOUT)
         self.data = {}
+
+    # async def WebsocketHandler(self):
+    #     global global_websocket
+    #     global_websocket = aiohttp.ClientSession()
+
+    #     wssUrl = self.__GetRegionURL()
+
+    #     async with global_websocket as session:
+    #         async with session.ws_connect(wssUrl, headers=headers) as ws:
+    #             await ws.send_str(json.dumps(self.GenerateVerifyRequest()))
+    #             while True:
+    #                 response = await ws.receive_str()
 
     async def GetAuthTokenAsync(self):
         """Get the Authentification token from Fisker, is used towards the WebSocket connection."""
@@ -54,32 +75,32 @@ class MyFiskerAPI:
 
     def GetCarSettings(self):
         try:
-            data = json.loads(self.data["car_settings"])
-            return data  # self.flatten_json(data["data"])
+            data = json.loads(self.data[CAR_SETTINGS])
+            return data
         except NameError:
             _LOGGER.warning("Self.data['car_settings'] is not available")
             return None
 
     async def GetDigitalTwin(self):
-        self.data["digital_twin"] = self.flatten_json(
+        self.data[DIGITAL_TWIN] = self.flatten_json(
             self.ParseDigitalTwinResponse(
-                await self.__GetWebsocketResponse("digital_twin")
+                await self.__GetWebsocketResponse(DIGITAL_TWIN)
             )
         )
-        return self.data["digital_twin"]
+        return self.data[DIGITAL_TWIN]
 
     async def GetProfiles(self):
-        self.data["profiles"] = self.ParseProfilesResponse(
-            await self.__GetWebsocketResponse("profiles")
+        self.data[PROFILES] = self.ParseProfilesResponse(
+            await self.__GetWebsocketResponse(PROFILES)
         )
-        return self.data["profiles"]
+        return self.data[PROFILES]
 
     def ParseDigitalTwinResponse(self, jsonMsg):
         # _LOGGER.debug('Start ParseDigitalTwinResponse()')
         # Parse the JSON response into a Python dictionary
         data = json.loads(jsonMsg)
         # print (data)
-        if data["handler"] != "digital_twin":
+        if data["handler"] != DIGITAL_TWIN:
             _LOGGER.debug("ParseDigitalTwinResponse: Wrong answer from websocket")
             _LOGGER.debug(data)
             return "Wrong answer from websocket"
@@ -126,7 +147,7 @@ class MyFiskerAPI:
         # _LOGGER.debug('Start GenerateProfilesRequest()')
         messageData = {}
 
-        messageData["handler"] = "profiles"
+        messageData["handler"] = PROFILES
         # print (messageData)
         return messageData
 
@@ -134,9 +155,9 @@ class MyFiskerAPI:
         # _LOGGER.debug('Start DigitalTwinRequest()')
         data = {}
         messageData = {}
-        data["vin"] = vin
+        data["vin"] = self.vin
         messageData["data"] = data
-        messageData["handler"] = "digital_twin"
+        messageData["handler"] = DIGITAL_TWIN
         return messageData
 
     def ParseProfilesResponse(self, jsonMsg):
@@ -144,7 +165,7 @@ class MyFiskerAPI:
         # Parse the JSON response into a Python dictionary
         data = json.loads(jsonMsg)
         # print (data)
-        if data["handler"] != "profiles":
+        if data["handler"] != PROFILES:
             _LOGGER.debug("ParseProfilesResponse: Wrong answer from websocket")
             _LOGGER.debug(data)
             return "Wrong answer from websocket"
@@ -156,14 +177,15 @@ class MyFiskerAPI:
         result = item1
         return result
 
-    def SendCommandRequest(self, command):
+    async def SendCommandRequest(self, command):
         # _LOGGER.debug('Start SendCommandRequest()')
         data = {}
         messageData = {}
-        data["vin"] = vin
+        data["vin"] = self.vin
+        data["command"] = command
         messageData["data"] = data
         messageData["handler"] = "remote_command"
-        return messageData
+        return await self.__SendWebsocketRequest(messageData)
 
     def __GetRegionURL(self):
         match self._region:
@@ -187,8 +209,8 @@ class MyFiskerAPI:
                     response = await ws.receive_str()
                     handler = json.loads(response)["handler"]
 
-                    if handler == "car_settings":
-                        self.data["car_settings"] = response
+                    if handler == CAR_SETTINGS:
+                        self.data[CAR_SETTINGS] = response
 
                     if handler == responseToReturn:
                         try:
@@ -211,17 +233,17 @@ class MyFiskerAPI:
                             )
 
                     if HasAUTH is True and HasVIN is not True:
-                        if handler == "profiles":
-                            vin = self.ParseProfilesResponse(response)
+                        if handler == PROFILES:
+                            self.vin = self.ParseProfilesResponse(response)
                             # print (f"vin = {vin}")
-                            if vin != "":
+                            if self.vin != "":
                                 self.HasVIN = True
                                 # Send a message
                                 _LOGGER.debug(
-                                    f"Auth & VIN ok - Sending 'DigitalTwinRequest' to vin={vin}"
+                                    f"Auth & VIN ok - Sending 'DigitalTwinRequest' to vin={self.vin}"
                                 )
                                 await ws.send_str(
-                                    json.dumps(self.DigitalTwinRequest(vin))
+                                    json.dumps(self.DigitalTwinRequest(self.vin))
                                 )
 
                     if HasAUTH is True and HasVIN is True:
@@ -237,6 +259,35 @@ class MyFiskerAPI:
                                 )
 
                             return response
+
+    async def __SendWebsocketRequest(self, commandToSend: str):
+        HasAUTH = False
+        wssUrl = self.__GetRegionURL()
+
+        async with aiohttp.ClientSession() as session:
+            async with session.ws_connect(wssUrl, headers=headers) as ws:
+                await ws.send_str(json.dumps(self.GenerateVerifyRequest()))
+                while True:
+                    response = await ws.receive_str()
+                    handler = json.loads(response)["handler"]
+
+                    if handler in (DIGITAL_TWIN, CAR_SETTINGS):
+                        try:
+                            await ws.close()
+                        except Exception as e:
+                            _LOGGER.debug(
+                                f"Error occurred while closing WebSocket: {e}"
+                            )
+                        return response
+
+                    if HasAUTH is not True:
+                        if handler == "verify":
+                            HasAUTH = (
+                                json.loads(response)["data"]["authenticated"] is True
+                            )
+                            # Send a message
+                            # _LOGGER.debug(f"Sending 'GenerateProfilesRequest'")
+                            await ws.send_str(json.dumps(commandToSend))
 
     def flatten_json(self, jsonIn):
         out = {}

@@ -26,7 +26,7 @@ _LOGGER = logging.getLogger(__name__)
 # TODO List the platforms that you want to support.
 # For your initial PR, limit it to 1 platform.
 PLATFORMS: list[Platform] = [
-    # Platform.BUTTON,
+    #Platform.BUTTON,
     Platform.BINARY_SENSOR,
     Platform.SENSOR,
 ]
@@ -43,12 +43,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up My Fisker from a config entry."""
 
     hass.data.setdefault(DOMAIN, {})
-    # TODO 1. Create API instance
-    # TODO 2. Validate the API connection (and authentication)
-    # TODO 3. Store an API object for your platforms to access
-    # hass.data[DOMAIN][entry.entry_id] = MyApi(...)
 
-    # Glostrup:
     data = entry.data
     myFiskerApi = MyFiskerAPI(
         data[CONF_USERNAME], data[CONF_PASSWORD], data[CONF_REGION]

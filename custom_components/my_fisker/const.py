@@ -16,6 +16,10 @@ COMMAND_TRUNK_OPEN = "trunk_open"
 COMMAND_TRUNK_CLOSE = "trunk_close"
 COMMAND_CALIFORNIA_MODE = "california_mode"
 
+CAR_SETTINGS = "car_settings"
+DIGITAL_TWIN = "digital_twin"
+PROFILES = "profiles"
+
 LIST_CLIMATE_CONTROL_SEAT_HEAT = ["Unknown", "High", "Medium", "Low", "Off"]
 LIST_CLIMATE_CONTROL_STEERING_WHEEL_HEAT = ["Unknown", "Off", "On"]
 

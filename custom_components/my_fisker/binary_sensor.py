@@ -210,4 +210,12 @@ BINARY_SENSORS: tuple[SensorEntityDescription, ...] = (
         native_unit_of_measurement=None,
         value=lambda data, key: data[key],
     ),
+    FiskerEntityDescription(
+        key="vehicle_ready_state_is_vehicle_ready",
+        name="Vehicle Ready",
+        icon="mdi:car-info",
+        device_class=None,
+        native_unit_of_measurement=None,
+        value=lambda data, key: data[key],
+    ),
 )
