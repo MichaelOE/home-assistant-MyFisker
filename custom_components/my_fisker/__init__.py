@@ -20,13 +20,14 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
 from .api import MyFiskerAPI
 from .const import DOMAIN
+from .stats import TravelStats
 
 _LOGGER = logging.getLogger(__name__)
 
 # TODO List the platforms that you want to support.
 # For your initial PR, limit it to 1 platform.
 PLATFORMS: list[Platform] = [
-    #Platform.BUTTON,
+    Platform.BUTTON,
     Platform.BINARY_SENSOR,
     Platform.SENSOR,
 ]
@@ -89,6 +90,7 @@ class HassMyFisker:
         self._alias = alias
         self._region = region
         self._coordinator = coordinator
+
         _LOGGER.debug(
             f"MyFisker __init__{self._username}:{self._alias}, region={self._region}"
         )
@@ -115,6 +117,7 @@ class MyFiskerCoordinator(DataUpdateCoordinator):
         )
         self.my_fisker_api = my_api
         self._alias = alias
+        self.travelstats: TravelStats = TravelStats()
 
     async def _async_update_data(self):
         # Fetch data from API endpoint. This is the place to pre-process the data to lookup tables so entities can quickly look up their data.
