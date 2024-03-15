@@ -115,6 +115,9 @@ class FiskerSensor(CoordinatorEntity, SensorEntity):
             if "efficiency" in self.entity_description.key:
                 value = self._coordinator.travelstats.GetEfficiency()
 
+            if "speed" in self.entity_description.key:
+                value = self._coordinator.travelstats.GetSpeed()
+
             self._attr_native_value = value
 
         else:
@@ -139,18 +142,21 @@ class FiskerSensor(CoordinatorEntity, SensorEntity):
                 self._coordinator.travelstats.vehicleParked
                 != self._coordinator.data["gear_in_park"]
             ):
+                _LOGGER.info("carStartedDriving")
                 carStartedDriving = True
 
         if (
             self._coordinator.travelstats.vehicleParked is False
             and self._coordinator.data["gear_in_park"] is False
         ):
+            _LOGGER.info("carIsDriving")
             carIsDriving = True
 
         if (
             self._coordinator.travelstats.vehicleParked is False
             and self._coordinator.data["gear_in_park"] is True
         ):
+            _LOGGER.info("carEndedDriving")
             carEndedDriving = True
 
         self._coordinator.travelstats.vehicleParked = self._coordinator.data[
@@ -160,7 +166,7 @@ class FiskerSensor(CoordinatorEntity, SensorEntity):
         if carStartedDriving:
             self._coordinator.travelstats.Clear()
 
-        if carStartedDriving or carIsDriving:
+        if carIsDriving:
             # Get battery info
             if "battery_percent" in self.entity_description.key:
                 prevBatt = self._attr_native_value
@@ -539,7 +545,7 @@ SENSORS_TRAVELSTAT: tuple[SensorEntityDescription, ...] = (
     FiskerEntityDescription(
         key="travelstat_distance",
         name="Trip distance",
-        icon="mdi:car-info",
+        icon="mdi:map-marker-distance",
         device_class=SensorDeviceClass.DISTANCE,
         native_unit_of_measurement=UnitOfLength.KILOMETERS,
         value=lambda data, key: data[key],
@@ -547,15 +553,15 @@ SENSORS_TRAVELSTAT: tuple[SensorEntityDescription, ...] = (
     FiskerEntityDescription(
         key="travelstat_duration",
         name="Trip duration",
-        icon="mdi:car-info",
-        device_class=None,
+        icon="mdi:car-clock",
+        device_class=SensorDeviceClass.DURATION,
         native_unit_of_measurement=None,
         value=lambda data, key: data[key],
     ),
     FiskerEntityDescription(
         key="travelstat_battery",
         name="Trip energy",
-        icon="mdi:car-info",
+        icon="mdi:battery-minus",
         device_class=SensorDeviceClass.ENERGY,
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         value=lambda data, key: data[key],
@@ -563,9 +569,17 @@ SENSORS_TRAVELSTAT: tuple[SensorEntityDescription, ...] = (
     FiskerEntityDescription(
         key="travelstat_efficiency",
         name="Trip eficiency",
-        icon="mdi:car-info",
-        device_class=None,
+        icon="mdi:car-cruise-control",
+        device_class=SensorDeviceClass.ENERGY,
         native_unit_of_measurement=None,
+        value=lambda data, key: data[key],
+    ),
+    FiskerEntityDescription(
+        key="travelstat_speed",
+        name="Trip speed",
+        icon="mdi:speedometer",
+        device_class=SensorDeviceClass.SPEED,
+        native_unit_of_measurement=UnitOfSpeed.KILOMETERS_PER_HOUR,
         value=lambda data, key: data[key],
     ),
 )
