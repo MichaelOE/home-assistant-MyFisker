@@ -26,6 +26,29 @@ Add custom repository: https://github.com/MichaelOE/home-assistant-MyFisker
 The integration currently only supports reading of values.
 It is possible in the future to add 'commands' to the vehicle.
 
+For showing the vehicle on a map, this can be used:
+
+```python
+alias: Fisker Ocean update location
+description: ""
+trigger:
+  - platform: state
+    entity_id:
+      - sensor.fisker_location_latitude
+      - sensor.fisker_location_longitude
+condition: []
+action:
+  - service: device_tracker.see
+    metadata: {}
+    data:
+      dev_id: my_fisker_location
+      gps:
+        - "{{ states('sensor.fisker_location_latitude') }}"
+        - "{{ states('sensor.fisker_location_longitude') }}"
+mode: single
+```
+
+
 I have used apexchart for visualization.
 In the screenshot above showing remaining range/battery I used the following (note the 'battery-calculation', which is because Fisker API sometimes returns zero miles):
 
