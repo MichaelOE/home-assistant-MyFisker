@@ -20,7 +20,7 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
 from .api import MyFiskerAPI
 from .const import DOMAIN
-from .stats import TravelStats
+from .stats import TripStats
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -117,7 +117,7 @@ class MyFiskerCoordinator(DataUpdateCoordinator):
         )
         self.my_fisker_api = my_api
         self._alias = alias
-        self.travelstats: TravelStats = TravelStats()
+        self.travelstats: TripStats = TripStats()
 
     async def _async_update_data(self):
         # Fetch data from API endpoint. This is the place to pre-process the data to lookup tables so entities can quickly look up their data.
