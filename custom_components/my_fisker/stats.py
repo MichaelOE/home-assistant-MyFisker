@@ -9,7 +9,7 @@ class TripStats(object):
     """Travel stats for last journey."""
 
     def __init__(self):
-        # _LOGGER.debug("TravelStats init")
+        # _LOGGER.debug("TripStats init")
         self.vehicleParked = True
         self.Clear()
 
