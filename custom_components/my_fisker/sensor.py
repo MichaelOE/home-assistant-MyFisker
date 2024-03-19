@@ -133,9 +133,7 @@ class FiskerSensor(CoordinatorEntity, SensorEntity):
                 value = self._coordinator.tripstats.TripTime
 
             if "efficiency" in self.entity_description.key:
-                value = round(
-                    self._coordinator.tripstats.GetEfficiency * batt_factor, 2
-                )
+                value = round(self._coordinator.tripstats.Efficiency * batt_factor, 2)
 
             if "speed" in self.entity_description.key:
                 value = self._coordinator.tripstats.AverageSpeed

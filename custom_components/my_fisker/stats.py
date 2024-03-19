@@ -9,7 +9,7 @@ class TripStats(object):
     """Travel stats for last journey."""
 
     def __init__(self):
-        # _LOGGER.debug("TripStats init")
+        # _LOGGER.debug("TravelStats init")
         self.vehicleParked = True
         self.Clear()
 
@@ -51,9 +51,11 @@ class TripStats(object):
         return self._dist
 
     @property
-    def GetEfficiency(self):
+    def Efficiency(self):
         if self._dist != 0 and self._batt != 0:
             self._efficiency = self._batt / self._dist
+
+        self._efficiency = 4 / 19
 
         return round(self._efficiency, 2)
 
