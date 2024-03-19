@@ -24,7 +24,13 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from . import FiskerEntityDescription, MyFiskerCoordinator
-from .const import CLIMATE_CONTROL_SEAT_HEAT, DOMAIN, LIST_CLIMATE_CONTROL_SEAT_HEAT
+from .const import (
+    CLIMATE_CONTROL_SEAT_HEAT,
+    DOMAIN,
+    LIST_CLIMATE_CONTROL_SEAT_HEAT,
+    TRIM_EXTREME_ULTRA_BATT_CAPACITY,
+    TRIM_SPORT_BATT_CAPACITY,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -45,6 +51,7 @@ class FiskerSensor(CoordinatorEntity, SensorEntity):
         # self._sensor = sensor
         self._data = client
         self._coordinator = coordinator
+        self.vin = self._coordinator.data["vin"]
         self.entity_description: FiskerEntityDescription = sensor
         self._attr_unique_id = f"{self._coordinator.data['vin']}_{sensor.key}"
         self._attr_name = f"{self._coordinator._alias} {sensor.name}"
@@ -75,6 +82,18 @@ class FiskerSensor(CoordinatorEntity, SensorEntity):
             "name": self._coordinator._alias,
         }
 
+    @property
+    def battery_capacity(self):
+        # VCF1Z = One, VCF1E = Extreme, VCF1U = Ultra VCF1S = Sport
+        trim_extreme_ultra = ["VCF1Z", "VCF1E", "VCF1U"]
+        trim_sport = ["VCF1s"]
+        if self.vin[0:5] in trim_extreme_ultra:
+            return TRIM_EXTREME_ULTRA_BATT_CAPACITY
+        if self.vin[0:5] in trim_sport:
+            return TRIM_SPORT_BATT_CAPACITY
+        else:
+            return 0
+
     @callback
     def _handle_coordinator_update(self) -> None:
         """Handle updated data from the coordinator."""
@@ -103,20 +122,23 @@ class FiskerSensor(CoordinatorEntity, SensorEntity):
             self._attr_native_value = value
 
         elif "travelstat" in self.entity_description.key:
+            batt_factor = self.battery_capacity / 100
             if "battery" in self.entity_description.key:
-                value = self._coordinator.travelstats.GetTravelBatt()
+                value = round(self._coordinator.tripstats.TripBatt * batt_factor, 2)
 
             if "distance" in self.entity_description.key:
-                value = self._coordinator.travelstats.GetTravelDist()
+                value = self._coordinator.tripstats.TripDist
 
             if "duration" in self.entity_description.key:
-                value = self._coordinator.travelstats.GetTravelTime()
+                value = self._coordinator.tripstats.TripTime
 
             if "efficiency" in self.entity_description.key:
-                value = self._coordinator.travelstats.GetEfficiency()
+                value = round(
+                    self._coordinator.tripstats.GetEfficiency * batt_factor, 2
+                )
 
             if "speed" in self.entity_description.key:
-                value = self._coordinator.travelstats.GetSpeed()
+                value = self._coordinator.tripstats.AverageSpeed
 
             self._attr_native_value = value
 
@@ -137,34 +159,34 @@ class FiskerSensor(CoordinatorEntity, SensorEntity):
         carIsDriving = False
         carEndedDriving = False
 
-        if self._coordinator.travelstats.vehicleParked is True:
+        if self._coordinator.tripstats.vehicleParked is True:
             if (
-                self._coordinator.travelstats.vehicleParked
+                self._coordinator.tripstats.vehicleParked
                 != self._coordinator.data["gear_in_park"]
             ):
-                _LOGGER.info("carStartedDriving")
+                # _LOGGER.info("carStartedDriving")
                 carStartedDriving = True
 
         if (
-            self._coordinator.travelstats.vehicleParked is False
+            self._coordinator.tripstats.vehicleParked is False
             and self._coordinator.data["gear_in_park"] is False
         ):
-            _LOGGER.info("carIsDriving")
+            # _LOGGER.info("carIsDriving")
             carIsDriving = True
 
         if (
-            self._coordinator.travelstats.vehicleParked is False
+            self._coordinator.tripstats.vehicleParked is False
             and self._coordinator.data["gear_in_park"] is True
         ):
-            _LOGGER.info("carEndedDriving")
+            # _LOGGER.info("carEndedDriving")
             carEndedDriving = True
 
-        self._coordinator.travelstats.vehicleParked = self._coordinator.data[
+        self._coordinator.tripstats.vehicleParked = self._coordinator.data[
             "gear_in_park"
         ]
 
         if carStartedDriving:
-            self._coordinator.travelstats.Clear()
+            self._coordinator.tripstats.Clear()
 
         if carIsDriving:
             # Get battery info
@@ -173,7 +195,7 @@ class FiskerSensor(CoordinatorEntity, SensorEntity):
 
                 # Save battery info
                 if prevBatt != self._coordinator.data[self.idx[1]]:
-                    self._coordinator.travelstats.AddBattery(
+                    self._coordinator.tripstats.AddBattery(
                         self._coordinator.data[self.idx[1]]
                     )
 
@@ -183,7 +205,7 @@ class FiskerSensor(CoordinatorEntity, SensorEntity):
 
                 # Save distance info
                 if prevDist != self._coordinator.data[self.idx[1]]:
-                    self._coordinator.travelstats.AddDistance(
+                    self._coordinator.tripstats.AddDistance(
                         self._coordinator.data[self.idx[1]]
                     )
         elif carEndedDriving:
@@ -571,7 +593,7 @@ SENSORS_TRAVELSTAT: tuple[SensorEntityDescription, ...] = (
         name="Trip eficiency",
         icon="mdi:car-cruise-control",
         device_class=SensorDeviceClass.ENERGY,
-        native_unit_of_measurement=None,
+        native_unit_of_measurement="kWh/km",
         value=lambda data, key: data[key],
     ),
     FiskerEntityDescription(

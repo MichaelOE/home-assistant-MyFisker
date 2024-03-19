@@ -20,46 +20,51 @@ class TripStats(object):
         self._time = 0
         self._dist = 0
         self._efficiency = 0
+        self._speed = 0
 
+    @property
     def GetTravelStart(self):
         if self.vehicleParked:
             return None
 
         return self.qDist[0].value
 
-    def GetTravelTime(self):
-        if self.vehicleParked:
-            return self._time
+    @property
+    def TripTime(self):
+        if not self.vehicleParked:
+            self._time = self.qDist[-1].timestamp - self.qDist[0].timestamp
 
-        self._time = self.qDist[-1].timestamp - self.qDist[0].timestamp
-        return time.strftime("%Hh:%Mm", time.gmtime(tt))
-        #return self._time
+        return time.strftime("%HH:%Mm", time.gmtime(self._time))
 
-    def GetTravelBatt(self):
-        if self.vehicleParked:
-            return self._batt
+    @property
+    def TripBatt(self):
+        if not self.vehicleParked:
+            self._batt = self.qBatt[0].value - self.qBatt[-1].value
 
-        self._batt = self.qBatt[0].value - self.qBatt[-1].value
         return self._batt
 
-    def GetTravelDist(self):
-        if self.vehicleParked:
-            return self._dist
+    @property
+    def TripDist(self):
+        if not self.vehicleParked:
+            self._dist = self.qDist[-1].value - self.qDist[0].value
 
-        self._dist = self.qDist[-1].value - self.qDist[0].value
         return self._dist
 
+    @property
     def GetEfficiency(self):
-        if self._dist == 0 or self._batt == 0:
-            return 0
+        if self._dist != 0 and self._batt != 0:
+            self._efficiency = self._batt / self._dist
 
-        return round(self._dist / self._batt, 2)
+        self._efficiency = 4 / 19
 
-    def GetSpeed(self):
-        if self._dist == 0 or self._time == 0:
-            return 0
+        return round(self._efficiency, 2)
 
-        return round(self._dist / (self._time / 3600), 2)
+    @property
+    def AverageSpeed(self):
+        if self._dist != 0 and self._time != 0:
+            self._speed = self._dist / (self._time / 3600)
+
+        return round(self._speed, 2)
 
     def AddBattery(self, batt):
         item = StatsItem(batt, time.time())

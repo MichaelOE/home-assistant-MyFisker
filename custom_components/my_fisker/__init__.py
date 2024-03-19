@@ -19,7 +19,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
 from .api import MyFiskerAPI
-from .const import DOMAIN
+from .const import DOMAIN, TRIM_EXTREME_ULTRA_BATT_CAPACITY, TRIM_SPORT_BATT_CAPACITY
 from .stats import TripStats
 
 _LOGGER = logging.getLogger(__name__)
@@ -117,7 +117,7 @@ class MyFiskerCoordinator(DataUpdateCoordinator):
         )
         self.my_fisker_api = my_api
         self._alias = alias
-        self.travelstats: TripStats = TripStats()
+        self.tripstats: TripStats = TripStats()
 
     async def _async_update_data(self):
         # Fetch data from API endpoint. This is the place to pre-process the data to lookup tables so entities can quickly look up their data.
@@ -161,6 +161,18 @@ class FiskerEntityDescription(SensorEntityDescription):
             data, self.key.replace("car_settings_", "").replace("_updated", "")
         )
         # return self.value(data, self.key.replace("car_settings_", ""))
+
+    # @property
+    # def battery_capacity(self) -> int:
+    #     # VCF1Z = One, VCF1E = Extreme, VCF1U = Ultra VCF1S = Sport
+    #     trim_extreme_ultra = ["VCF1Z", "VCF1E", "VCF1U"]
+    #     trim_sport = ["VCF1s"]
+    #     if self.vin[0:5] in trim_extreme_ultra:
+    #         return TRIM_EXTREME_ULTRA_BATT_CAPACITY
+    #     if self.vin[0:5] in trim_sport:
+    #         return TRIM_SPORT_BATT_CAPACITY
+    #     else:
+    #         return 0
 
     def findInArray(self, jsonArray: str, nameToSearch: str):
         # Loop through the array

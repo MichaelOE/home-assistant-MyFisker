@@ -16,6 +16,9 @@ COMMAND_TRUNK_OPEN = "trunk_open"
 COMMAND_TRUNK_CLOSE = "trunk_close"
 COMMAND_CALIFORNIA_MODE = "california_mode"
 
+TRIM_EXTREME_ULTRA_BATT_CAPACITY = 113
+TRIM_SPORT_BATT_CAPACITY = 80
+
 CAR_SETTINGS = "car_settings"
 DIGITAL_TWIN = "digital_twin"
 PROFILES = "profiles"

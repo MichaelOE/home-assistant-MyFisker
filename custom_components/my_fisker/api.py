@@ -6,12 +6,14 @@ import aiohttp
 
 from .const import (
     API_TIMEOUT,
-    TOKEN_URL,
-    WSS_URL_EU,
-    WSS_URL_US,
     CAR_SETTINGS,
     DIGITAL_TWIN,
     PROFILES,
+    TOKEN_URL,
+    TRIM_EXTREME_ULTRA_BATT_CAPACITY,
+    TRIM_SPORT_BATT_CAPACITY,
+    WSS_URL_EU,
+    WSS_URL_US,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -40,18 +42,6 @@ class MyFiskerAPI:
         self._timeout = aiohttp.ClientTimeout(total=API_TIMEOUT)
         self.data = {}
 
-    # async def WebsocketHandler(self):
-    #     global global_websocket
-    #     global_websocket = aiohttp.ClientSession()
-
-    #     wssUrl = self.__GetRegionURL()
-
-    #     async with global_websocket as session:
-    #         async with session.ws_connect(wssUrl, headers=headers) as ws:
-    #             await ws.send_str(json.dumps(self.GenerateVerifyRequest()))
-    #             while True:
-    #                 response = await ws.receive_str()
-
     async def GetAuthTokenAsync(self):
         """Get the Authentification token from Fisker, is used towards the WebSocket connection."""
 
@@ -76,6 +66,7 @@ class MyFiskerAPI:
     def GetCarSettings(self):
         try:
             data = json.loads(self.data[CAR_SETTINGS])
+            _LOGGER.debug(data)
             return data
         except NameError:
             _LOGGER.warning("Self.data['car_settings'] is not available")
@@ -99,7 +90,8 @@ class MyFiskerAPI:
         # _LOGGER.debug('Start ParseDigitalTwinResponse()')
         # Parse the JSON response into a Python dictionary
         data = json.loads(jsonMsg)
-        # print (data)
+        _LOGGER.debug(data)
+
         if data["handler"] != DIGITAL_TWIN:
             _LOGGER.debug("ParseDigitalTwinResponse: Wrong answer from websocket")
             _LOGGER.debug(data)
@@ -249,7 +241,6 @@ class MyFiskerAPI:
                     if HasAUTH is True and HasVIN is True:
                         # _LOGGER.debug(f"Received message: {message}")
                         if handler == responseToReturn:
-                            # self.ParseDigitalTwinResponse(response)
                             _LOGGER.error(response)
                             try:
                                 await ws.close()
