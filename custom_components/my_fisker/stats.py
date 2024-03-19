@@ -55,8 +55,6 @@ class TripStats(object):
         if self._dist != 0 and self._batt != 0:
             self._efficiency = self._batt / self._dist
 
-        self._efficiency = 4 / 19
-
         return round(self._efficiency, 2)
 
     @property
