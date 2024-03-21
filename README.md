@@ -3,9 +3,6 @@
 
 Custom component for getting information about your Fisker Ocean presented in Home Assistant.
 
-- Work in progress
-- Currently only supports one vehicle per account
-
 # Features
 - Provides sensors for various part of the vehicle
 ![Screenshot_2024-02-24-14-24-11-31_f8348633b3cc54ccc0ae923fa7a5486e](https://github.com/MichaelOE/home-assistant-MyFisker/assets/37800126/55d11a02-86ec-48ad-978b-2ea01c27f41f)
@@ -99,6 +96,11 @@ series:
     fill_raw: last
     stroke_width: 2
 ```
+
+# Known issues
+- Currently only supports one vehicle per account
+- Battery range sometimes reported as 0 (zero) from the Fisker API
+- Battery / range is reported without decimals, making trip stats unprecise at shorter trips
 
 
 [buymecoffeebadge]: https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png
