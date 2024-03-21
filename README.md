@@ -11,17 +11,17 @@ Custom component for getting information about your Fisker Ocean presented in Ho
 # Installation and setup
 This integration can be installed through HACS.
 
-Add custom repository: https://github.com/MichaelOE/home-assistant-MyFisker
+Alternatively, you can get the custom repository here: https://github.com/MichaelOE/home-assistant-MyFisker
 
 ## Setup
 - Username: The same as you use in your 'My Fisker'
 - Password: The same as you use in your 'My Fisker'
 - Region: Select your region, used to determine the datacenter URL
-- Alias: Prefix, which is used on all entities created by the integration
+- Alias: Prefix, which is used on all entity names created by the integration
 
 # Usage
 The integration currently only supports reading of values.
-It is possible in the future to add 'commands' to the vehicle.
+It is possible I will add 'commands' to the vehicle in the future.
 
 For showing the vehicle on a map, this can be used:
 
@@ -44,7 +44,6 @@ action:
         - "{{ states('sensor.fisker_location_longitude') }}"
 mode: single
 ```
-
 
 I have used apexchart for visualization.
 In the screenshot above showing remaining range/battery I used the following (note the 'battery-calculation', which is because Fisker API sometimes returns zero miles):
