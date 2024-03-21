@@ -1,6 +1,7 @@
 """Platform for sensor integration."""
 from __future__ import annotations
 
+from datetime import datetime
 import logging
 
 from homeassistant.components.sensor import (
@@ -100,45 +101,18 @@ class FiskerSensor(CoordinatorEntity, SensorEntity):
 
         data_available = False
 
-        self.update_travelstats()
+        self.update_tripstats()
 
         if "car_settings" in self.entity_description.key:
             try:
-                value = "n/a"
-                carSetting = self._coordinator.my_fisker_api.GetCarSettings()
-                # key = self.entity_description.key.replace("car_settings_", "")
-
-                value = self.entity_description.get_car_settings_value(carSetting)
-                # value = self.findInArray(carSetting, key.replace("_updated", ""))
-                if "_updated" in self.entity_description.key:
-                    value = value["updated"]
-                else:
-                    value = value["value"]
-
+                value = self.handle_carsettings(self.entity_description.key)
                 data_available = True
+                self._attr_native_value = value
             except:
                 _LOGGER.debug("car_settings not available")
 
-            self._attr_native_value = value
-
-        elif "travelstat" in self.entity_description.key:
-            batt_factor = self.battery_capacity / 100
-            if "battery" in self.entity_description.key:
-                value = round(self._coordinator.tripstats.TripBatt * batt_factor, 2)
-
-            if "distance" in self.entity_description.key:
-                value = self._coordinator.tripstats.TripDist
-
-            if "duration" in self.entity_description.key:
-                value = self._coordinator.tripstats.TripTime
-
-            if "efficiency" in self.entity_description.key:
-                value = round(self._coordinator.tripstats.Efficiency * batt_factor, 2)
-
-            if "speed" in self.entity_description.key:
-                value = self._coordinator.tripstats.AverageSpeed
-
-            self._attr_native_value = value
+        elif "tripstat" in self.entity_description.key:
+            self._attr_native_value = self.handle_tripstats(self.entity_description.key)
 
         else:
             value = self._coordinator.data[self.idx[1]]
@@ -152,7 +126,39 @@ class FiskerSensor(CoordinatorEntity, SensorEntity):
         self._attr_available = data_available
         self.async_write_ha_state()
 
-    def update_travelstats(self):
+    def handle_carsettings(self, key):
+        value = "n/a"
+
+        carSetting = self._coordinator.my_fisker_api.GetCarSettings()
+        value = self.entity_description.get_car_settings_value(carSetting)
+
+        if "_updated" in key:
+            value = value["updated"]
+        else:
+            value = value["value"]
+
+        return value
+
+    def handle_tripstats(self, key):
+        batt_factor = self.battery_capacity / 100
+        if "battery" in key:
+            value = round(self._coordinator.tripstats.TripBatt * batt_factor, 2)
+
+        if "distance" in key:
+            value = self._coordinator.tripstats.TripDist
+
+        if "duration" in key:
+            value = self._coordinator.tripstats.TripTime
+
+        if "efficiency" in key:
+            value = round(self._coordinator.tripstats.Efficiency * batt_factor, 2)
+
+        if "speed" in key:
+            value = self._coordinator.tripstats.AverageSpeed
+
+        return value
+
+    def update_tripstats(self):
         carStartedDriving = False
         carIsDriving = False
         carEndedDriving = False
@@ -220,7 +226,14 @@ class FiskerSensor(CoordinatorEntity, SensorEntity):
     @property
     def state(self):
         try:
-            state = self._attr_native_value
+            retVal = self._attr_native_value
+            if self.entity_description.format != None:
+                parsed_datetime = datetime.strptime(retVal, "%Y-%m-%dT%H:%M:%S.%fZ")
+                # Convert to the desired output format
+                retVal = parsed_datetime.strftime(self.entity_description.format)
+
+            state = retVal
+
         except (KeyError, ValueError):
             return None
         return state
@@ -255,7 +268,7 @@ async def async_setup_entry(
     for sensor in SENSORS_CAR_SETTINGS:
         entities.append(FiskerSensor(coordinator, 100, sensor, my_Fisker_data))
 
-    for sensor in SENSORS_TRAVELSTAT:
+    for sensor in SENSORS_tripSTAT:
         entities.append(FiskerSensor(coordinator, 200, sensor, my_Fisker_data))
 
     # Add entities to Home Assistant
@@ -427,6 +440,7 @@ SENSORS_DIGITAL_TWIN: tuple[SensorEntityDescription, ...] = (
         device_class=None,
         native_unit_of_measurement=None,
         value=lambda data, key: data[key],
+        format="%Y-%m-%d %H:%M:%S",
     ),
     FiskerEntityDescription(
         key="vehicle_speed_speed",
@@ -526,6 +540,7 @@ SENSORS_CAR_SETTINGS: tuple[SensorEntityDescription, ...] = (
         device_class=None,
         native_unit_of_measurement=None,
         value=lambda data, key: data[key],
+        format="%Y-%m-%d %H:%M",
     ),
     FiskerEntityDescription(
         key="car_settings_flashpack_number",
@@ -561,9 +576,9 @@ SENSORS_CAR_SETTINGS: tuple[SensorEntityDescription, ...] = (
     ),
 )
 
-SENSORS_TRAVELSTAT: tuple[SensorEntityDescription, ...] = (
+SENSORS_tripSTAT: tuple[SensorEntityDescription, ...] = (
     FiskerEntityDescription(
-        key="travelstat_distance",
+        key="tripstat_distance",
         name="Trip distance",
         icon="mdi:map-marker-distance",
         device_class=SensorDeviceClass.DISTANCE,
@@ -571,7 +586,7 @@ SENSORS_TRAVELSTAT: tuple[SensorEntityDescription, ...] = (
         value=lambda data, key: data[key],
     ),
     FiskerEntityDescription(
-        key="travelstat_duration",
+        key="tripstat_duration",
         name="Trip duration",
         icon="mdi:car-clock",
         device_class=SensorDeviceClass.DURATION,
@@ -579,7 +594,7 @@ SENSORS_TRAVELSTAT: tuple[SensorEntityDescription, ...] = (
         value=lambda data, key: data[key],
     ),
     FiskerEntityDescription(
-        key="travelstat_battery",
+        key="tripstat_battery",
         name="Trip energy",
         icon="mdi:battery-minus",
         device_class=SensorDeviceClass.ENERGY,
@@ -587,7 +602,7 @@ SENSORS_TRAVELSTAT: tuple[SensorEntityDescription, ...] = (
         value=lambda data, key: data[key],
     ),
     FiskerEntityDescription(
-        key="travelstat_efficiency",
+        key="tripstat_efficiency",
         name="Trip eficiency",
         icon="mdi:car-cruise-control",
         device_class=SensorDeviceClass.ENERGY,
@@ -595,7 +610,7 @@ SENSORS_TRAVELSTAT: tuple[SensorEntityDescription, ...] = (
         value=lambda data, key: data[key],
     ),
     FiskerEntityDescription(
-        key="travelstat_speed",
+        key="tripstat_speed",
         name="Trip speed",
         icon="mdi:speedometer",
         device_class=SensorDeviceClass.SPEED,

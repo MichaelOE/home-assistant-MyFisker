@@ -142,7 +142,14 @@ class FiskerEntityDescription(SensorEntityDescription):
     """Describes MyFisker ID sensor entity."""
 
     def __init__(
-        self, key, name, icon, device_class, native_unit_of_measurement, value
+        self,
+        key,
+        name,
+        icon,
+        device_class,
+        native_unit_of_measurement,
+        value,
+        format=None,
     ):
         super().__init__(key)
         self.key = key
@@ -152,6 +159,7 @@ class FiskerEntityDescription(SensorEntityDescription):
             self.device_class = device_class
         self.native_unit_of_measurement = native_unit_of_measurement
         self.value = value
+        self.format = format
 
     def get_digital_twin_value(self, data):
         return self.value(data, self.key)
