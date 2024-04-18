@@ -1,4 +1,5 @@
 """Zaptec component binary sensors."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -49,10 +50,10 @@ class FiskerButton(ButtonEntity):
         self.entity_description = description
         self.coordinator: MyFiskerCoordinator = coordinator
         self._state = 0
-
-    @property
-    def name(self):
-        return self.entity_description.key
+        self._attr_unique_id = (
+            f"{self.coordinator._coordinator.data['vin']}_{description.key}"
+        )
+        self._attr_name = f"{self.coordinator._coordinator._alias} {description.name}"
 
     @property
     def state(self):
@@ -115,11 +116,23 @@ BUTTON_ENTITIES: list[EntityDescription] = [
         key="doors_unlock",
         name="doors_unlock",
         translation_key="doors_unlock",
-        icon="mdi:play-circle-outline",
+        icon="mdi:car-door-lock-open",
     ),
     FiskerButtonEntityDescription(
         key="doors_lock",
-        name="doors_unlock",
+        name="doors_lock",
+        translation_key="doors_lock",
+        icon="mdi:car-door-lock",
+    ),
+    FiskerButtonEntityDescription(
+        key="trunk_open",
+        name="trunk_open",
+        translation_key="doors_lock",
+        icon="mdi:play-circle-outline",
+    ),
+    FiskerButtonEntityDescription(
+        key="trunk_close",
+        name="trunk_close",
         translation_key="doors_lock",
         icon="mdi:play-circle-outline",
     ),

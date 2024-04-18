@@ -1,4 +1,5 @@
 """Platform for sensor integration."""
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -101,6 +102,7 @@ class FiskerSensor(CoordinatorEntity, SensorEntity):
 
         data_available = False
 
+        self.update_chargestats()
         self.update_tripstats()
 
         if "car_settings" in self.entity_description.key:
@@ -113,6 +115,11 @@ class FiskerSensor(CoordinatorEntity, SensorEntity):
 
         elif "tripstat" in self.entity_description.key:
             self._attr_native_value = self.handle_tripstats(self.entity_description.key)
+
+        elif "chargestat" in self.entity_description.key:
+            self._attr_native_value = self.handle_chargestats(
+                self.entity_description.key
+            )
 
         else:
             value = self._coordinator.data[self.idx[1]]
@@ -142,10 +149,10 @@ class FiskerSensor(CoordinatorEntity, SensorEntity):
     def handle_tripstats(self, key):
         batt_factor = self.battery_capacity / 100
         if "battery" in key:
-            value = round(self._coordinator.tripstats.TripBatt * batt_factor, 2)
+            value = round(self._coordinator.tripstats.Batt * batt_factor, 2)
 
         if "distance" in key:
-            value = self._coordinator.tripstats.TripDist
+            value = self._coordinator.tripstats.Dist
 
         if "duration" in key:
             value = self._coordinator.tripstats.TripTime
@@ -155,6 +162,25 @@ class FiskerSensor(CoordinatorEntity, SensorEntity):
 
         if "speed" in key:
             value = self._coordinator.tripstats.AverageSpeed
+
+        return value
+
+    def handle_chargestats(self, key):
+        batt_factor = self.battery_capacity / 100
+        if "battery" in key:
+            value = round(self._coordinator.chargestats.Batt * batt_factor, 2)
+
+        if "distance" in key:
+            value = self._coordinator.chargestats.Dist
+
+        if "duration" in key:
+            value = self._coordinator.chargestats.TripTime
+
+        if "efficiency" in key:
+            value = round(self._coordinator.chargestats.Efficiency * batt_factor, 2)
+
+        if "speed" in key:
+            value = self._coordinator.chargestats.AverageSpeed
 
         return value
 
@@ -215,6 +241,69 @@ class FiskerSensor(CoordinatorEntity, SensorEntity):
         elif carEndedDriving:
             pass
 
+    def update_chargestats(self):
+        carIsCharging = False
+        carEndedCharging = False
+
+        if self._coordinator.chargestats.vehicleParked is True:
+            carIsCharging = True
+
+        if carIsCharging:
+            if "Initial_value" in self._coordinator.data["battery_charge_type"]:
+                carIsCharging = False
+                carEndedCharging = True
+
+        # Remember if vehicle is 'charging'
+        self._coordinator.chargestats.vehicleParked = (
+            "charging" in self._coordinator.data["battery_charge_type"]
+        )
+
+        if carEndedCharging and (self._coordinator.data["gear_in_park"] is True):
+            self._coordinator.chargestats.Clear()
+
+            # Get battery info
+            if "battery_percent" in self.entity_description.key:
+                prevBatt = self._attr_native_value
+
+                # Save battery info
+                if prevBatt != self._coordinator.data[self.idx[1]]:
+                    self._coordinator.chargestats.AddBattery(
+                        self._coordinator.data[self.idx[1]]
+                    )
+
+            # Get distance info
+            if "battery_total_mileage_odometer" in self.entity_description.key:
+                prevDist = self._attr_native_value
+
+                # Save distance info
+                if prevDist != self._coordinator.data[self.idx[1]]:
+                    self._coordinator.chargestats.AddDistance(
+                        self._coordinator.data[self.idx[1]]
+                    )
+
+        if carIsCharging is False:
+            # Get battery info
+            if "battery_percent" in self.entity_description.key:
+                prevBatt = self._attr_native_value
+
+                # Save battery info
+                if prevBatt != self._coordinator.data[self.idx[1]]:
+                    self._coordinator.chargestats.AddBattery(
+                        self._coordinator.data[self.idx[1]]
+                    )
+
+            # Get distance info
+            if "battery_total_mileage_odometer" in self.entity_description.key:
+                prevDist = self._attr_native_value
+
+                # Save distance info
+                if prevDist != self._coordinator.data[self.idx[1]]:
+                    self._coordinator.chargestats.AddDistance(
+                        self._coordinator.data[self.idx[1]]
+                    )
+        else:
+            pass
+
     @property
     def should_poll(self):
         return False
@@ -270,6 +359,9 @@ async def async_setup_entry(
 
     for sensor in SENSORS_tripSTAT:
         entities.append(FiskerSensor(coordinator, 200, sensor, my_Fisker_data))
+
+    for sensor in SENSORS_ChargeStat:
+        entities.append(FiskerSensor(coordinator, 300, sensor, my_Fisker_data))
 
     # Add entities to Home Assistant
     async_add_entities(entities)
@@ -612,6 +704,49 @@ SENSORS_tripSTAT: tuple[SensorEntityDescription, ...] = (
     FiskerEntityDescription(
         key="tripstat_speed",
         name="Trip speed",
+        icon="mdi:speedometer",
+        device_class=SensorDeviceClass.SPEED,
+        native_unit_of_measurement=UnitOfSpeed.KILOMETERS_PER_HOUR,
+        value=lambda data, key: data[key],
+    ),
+)
+
+SENSORS_ChargeStat: tuple[SensorEntityDescription, ...] = (
+    FiskerEntityDescription(
+        key="chargestat_distance",
+        name="charge distance",
+        icon="mdi:map-marker-distance",
+        device_class=SensorDeviceClass.DISTANCE,
+        native_unit_of_measurement=UnitOfLength.KILOMETERS,
+        value=lambda data, key: data[key],
+    ),
+    FiskerEntityDescription(
+        key="chargestat_duration",
+        name="charge duration",
+        icon="mdi:car-clock",
+        device_class=SensorDeviceClass.DURATION,
+        native_unit_of_measurement=None,
+        value=lambda data, key: data[key],
+    ),
+    FiskerEntityDescription(
+        key="chargestat_battery",
+        name="charge energy",
+        icon="mdi:battery-minus",
+        device_class=SensorDeviceClass.ENERGY,
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        value=lambda data, key: data[key],
+    ),
+    FiskerEntityDescription(
+        key="chargestat_efficiency",
+        name="charge eficiency",
+        icon="mdi:car-cruise-control",
+        device_class=SensorDeviceClass.ENERGY,
+        native_unit_of_measurement="kWh/km",
+        value=lambda data, key: data[key],
+    ),
+    FiskerEntityDescription(
+        key="chargestat_speed",
+        name="charge speed",
         icon="mdi:speedometer",
         device_class=SensorDeviceClass.SPEED,
         native_unit_of_measurement=UnitOfSpeed.KILOMETERS_PER_HOUR,

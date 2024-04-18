@@ -1,4 +1,5 @@
 """The My Fisker integration."""
+
 from __future__ import annotations
 
 import asyncio.timeouts
@@ -118,6 +119,7 @@ class MyFiskerCoordinator(DataUpdateCoordinator):
         self.my_fisker_api = my_api
         self._alias = alias
         self.tripstats: TripStats = TripStats()
+        self.chargestats: TripStats = TripStats()
 
     async def _async_update_data(self):
         # Fetch data from API endpoint. This is the place to pre-process the data to lookup tables so entities can quickly look up their data.

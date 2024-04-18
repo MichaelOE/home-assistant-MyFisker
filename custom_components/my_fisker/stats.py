@@ -37,14 +37,14 @@ class TripStats(object):
         return time.strftime("%HH:%Mm", time.gmtime(self._time))
 
     @property
-    def TripBatt(self):
+    def Batt(self):
         if not self.vehicleParked:
             self._batt = self.qBatt[0].value - self.qBatt[-1].value
 
         return self._batt
 
     @property
-    def TripDist(self):
+    def Dist(self):
         if not self.vehicleParked:
             self._dist = self.qDist[-1].value - self.qDist[0].value
 
