@@ -6,14 +6,24 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class TripStats(object):
-    """Travel stats for last journey."""
+    """Trip stats for current drive."""
 
     def __init__(self):
-        # _LOGGER.debug("TravelStats init")
+        # _LOGGER.debug("TripStats init")
+        self.carIsRunning = False
         self.vehicleParked = True
+        self.qDist = deque()
+        self.qBatt = deque()
+        self._batt = 0
+        self._time = 0
+        self._dist = 0
+        self._efficiency = 0
+        self._speed = 0
+        self.previous_efficiency = 0
         self.Clear()
 
     def Clear(self):
+        self.previous_efficiency = self._efficiency
         self.qDist = deque()
         self.qBatt = deque()
         self._batt = 0
@@ -23,52 +33,52 @@ class TripStats(object):
         self._speed = 0
 
     @property
-    def GetTravelStart(self):
+    def start(self):
         if self.vehicleParked:
             return None
 
         return self.qDist[0].value
 
     @property
-    def TripTime(self):
+    def time(self):
         if not self.vehicleParked:
             self._time = self.qDist[-1].timestamp - self.qDist[0].timestamp
 
         return time.strftime("%HH:%Mm", time.gmtime(self._time))
 
     @property
-    def Batt(self):
+    def batt(self):
         if not self.vehicleParked:
             self._batt = self.qBatt[0].value - self.qBatt[-1].value
 
         return self._batt
 
     @property
-    def Dist(self):
+    def dist(self):
         if not self.vehicleParked:
             self._dist = self.qDist[-1].value - self.qDist[0].value
 
         return self._dist
 
     @property
-    def Efficiency(self):
+    def efficiency(self):
         if self._dist != 0 and self._batt != 0:
             self._efficiency = self._batt / self._dist
 
         return round(self._efficiency, 2)
 
     @property
-    def AverageSpeed(self):
+    def average_speed(self):
         if self._dist != 0 and self._time != 0:
             self._speed = self._dist / (self._time / 3600)
 
         return round(self._speed, 2)
 
-    def AddBattery(self, batt):
+    def add_battery(self, batt):
         item = StatsItem(batt, time.time())
         self.qBatt.append(item)
 
-    def AddDistance(self, dist):
+    def add_distance(self, dist):
         item = StatsItem(dist, time.time())
         self.qDist.append(item)
 
