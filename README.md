@@ -1,6 +1,9 @@
 # Fisker Ocean component for Home Assistant
 [![BuyMeCoffee][buymecoffeebadge]][michaelo-buymecoffee]
 
+**Currently inactive due to Fisker inc. has shut down API server.
+If/when this comes back online, the integration will be as well.**
+
 Custom component for getting information about your Fisker Ocean presented in Home Assistant.
 
 # Features
