@@ -3,6 +3,7 @@
 
 **Currently inactive due to Fisker inc. has shut down API server (still down in Europe).
 If/when this comes back online, the integration will be as well.**
+December '24 - Eu server is back in business...
 
 Custom component for getting information about your Fisker Ocean presented in Home Assistant.
 
