@@ -46,9 +46,10 @@ class MyFiskerAPI:
         """Get the Authentification token from Fisker, is used towards the WebSocket connection."""
 
         params = {"username": self._username, "password": self._password}
-        async with aiohttp.ClientSession() as session, session.post(
-            TOKEN_URL, data=params
-        ) as response:
+        async with (
+            aiohttp.ClientSession() as session,
+            session.post(TOKEN_URL, data=params) as response,
+        ):
             data = await response.json()
 
             # Check if a key exists
@@ -100,8 +101,41 @@ class MyFiskerAPI:
         # Now you can access the items in the JSON response as you would with a Python dictionary
         digital_twin = data["data"]
 
+        if self._region != "US":
+            digital_twin = self._ConvertToImperial(digital_twin)
+
         # Use the jsonpath expression to find the value in the data
         _LOGGER.debug(digital_twin)  # Outputs: value1
+        return digital_twin
+
+    def _ConvertToImperial(self, digital_twin):
+        # km to miles
+        digital_twin["vehicle_speed"]["speed"] = round(
+            digital_twin["vehicle_speed"]["speed"] * 0.621371, None
+        )
+        digital_twin["battery"]["total_mileage_odometer"] = round(
+            digital_twin["battery"]["total_mileage_odometer"] * 0.621371, None
+        )
+
+        # celsius to fahrenheit
+        digital_twin["battery"]["avg_cell_temp"] = round(
+            digital_twin["battery"]["avg_cell_temp"] * 1.8 + 32, None
+        )
+        digital_twin["climate_control"]["cabin_temperature"] = round(
+            digital_twin["climate_control"]["cabin_temperature"] * 1.8 + 32, None
+        )
+        digital_twin["climate_control"]["ambient_temperature"] = round(
+            digital_twin["climate_control"]["ambient_temperature"] * 1.8 + 32, None
+        )
+        digital_twin["climate_control"]["internal_temperature"] = round(
+            digital_twin["climate_control"]["internal_temperature"] * 1.8 + 32, None
+        )
+
+        # m to ft
+        digital_twin["location"]["altitude"] = (
+            digital_twin["location"]["altitude"] * 3.28084
+        )
+
         return digital_twin
 
     def GenerateVerifyRequest(self):

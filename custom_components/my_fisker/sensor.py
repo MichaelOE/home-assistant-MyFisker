@@ -160,6 +160,9 @@ class FiskerSensor(CoordinatorEntity, SensorEntity):
         if "_efficiency" in key:
             value = round(self._coordinator.tripstats.efficiency * batt_factor, 2)
 
+        if "_efficiency_dist" in key:
+            value = round(self._coordinator.tripstats.efficiency_dist * batt_factor, 2)
+
         if "_prevefficiency" in key:
             value = round(
                 self._coordinator.tripstats.previous_efficiency * batt_factor, 2
@@ -711,10 +714,18 @@ SENSORS_tripSTAT: tuple[SensorEntityDescription, ...] = (
     ),
     FiskerEntityDescription(
         key="tripstat_efficiency",
-        name="Trip eficiency",
+        name="Trip efficiency",
         icon="mdi:car-cruise-control",
         device_class=SensorDeviceClass.ENERGY,
         native_unit_of_measurement="kWh/km",
+        value=lambda data, key: data[key],
+    ),
+    FiskerEntityDescription(
+        key="tripstat_efficiency_dist",
+        name="Trip efficiency distance",
+        icon="mdi:car-cruise-control",
+        device_class=SensorDeviceClass.DISTANCE,
+        native_unit_of_measurement="km/kWh",
         value=lambda data, key: data[key],
     ),
     FiskerEntityDescription(
