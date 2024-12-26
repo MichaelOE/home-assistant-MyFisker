@@ -101,7 +101,7 @@ class MyFiskerAPI:
         # Now you can access the items in the JSON response as you would with a Python dictionary
         digital_twin = data["data"]
 
-        if self._region != "US":
+        if self._region == "US":
             digital_twin = self._ConvertToImperial(digital_twin)
 
         # Use the jsonpath expression to find the value in the data
