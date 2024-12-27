@@ -3,28 +3,26 @@
 
 Custom component for getting information about your Fisker Ocean presented in Home Assistant.
 
-- Work in progress
-- Currently only supports one vehicle per account
-
 # Features
 - Provides sensors for various part of the vehicle
-![Screenshot_2024-02-24-14-24-11-31_f8348633b3cc54ccc0ae923fa7a5486e](https://github.com/MichaelOE/home-assistant-MyFisker/assets/37800126/55d11a02-86ec-48ad-978b-2ea01c27f41f)
-![Screenshot_2024-02-24-14-24-30-57_f8348633b3cc54ccc0ae923fa7a5486e](https://github.com/MichaelOE/home-assistant-MyFisker/assets/37800126/a57eb9a7-2d01-4fdc-a29f-da1f757878e1)
+
+<img src="https://github.com/MichaelOE/home-assistant-MyFisker/assets/37800126/55d11a02-86ec-48ad-978b-2ea01c27f41f" width="400" title="Screenshot"/>
+<img src="https://github.com/MichaelOE/home-assistant-MyFisker/assets/37800126/a57eb9a7-2d01-4fdc-a29f-da1f757878e1" width="400" title="Screenshot"/>
 
 # Installation and setup
 This integration can be installed through HACS.
 
-Add custom repository: https://github.com/MichaelOE/home-assistant-MyFisker
+Alternatively, you can get the custom repository here: https://github.com/MichaelOE/home-assistant-MyFisker
 
 ## Setup
 - Username: The same as you use in your 'My Fisker'
 - Password: The same as you use in your 'My Fisker'
 - Region: Select your region, used to determine the datacenter URL
-- Alias: Prefix, which is used on all entities created by the integration
+- Alias: Prefix, which is used on all entity names created by the integration
 
 # Usage
 The integration currently only supports reading of values.
-It is possible in the future to add 'commands' to the vehicle.
+It is possible I will add 'commands' to the vehicle in the future.
 
 For showing the vehicle on a map, this can be used:
 
@@ -47,7 +45,6 @@ action:
         - "{{ states('sensor.fisker_location_longitude') }}"
 mode: single
 ```
-
 
 I have used apexchart for visualization.
 In the screenshot above showing remaining range/battery I used the following (note the 'battery-calculation', which is because Fisker API sometimes returns zero miles):
@@ -99,6 +96,11 @@ series:
     fill_raw: last
     stroke_width: 2
 ```
+
+# Known issues
+- Currently only supports one vehicle per account
+- Battery range sometimes reported as 0 (zero) from the Fisker API
+- Battery / range is reported without decimals, making trip stats unprecise at shorter trips
 
 
 [buymecoffeebadge]: https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png

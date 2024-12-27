@@ -1,4 +1,5 @@
 """The My Fisker integration."""
+
 from __future__ import annotations
 
 import asyncio.timeouts
@@ -118,6 +119,7 @@ class MyFiskerCoordinator(DataUpdateCoordinator):
         self.my_fisker_api = my_api
         self._alias = alias
         self.tripstats: TripStats = TripStats()
+        self.chargestats: TripStats = TripStats()
 
     async def _async_update_data(self):
         # Fetch data from API endpoint. This is the place to pre-process the data to lookup tables so entities can quickly look up their data.
@@ -142,7 +144,14 @@ class FiskerEntityDescription(SensorEntityDescription):
     """Describes MyFisker ID sensor entity."""
 
     def __init__(
-        self, key, name, icon, device_class, native_unit_of_measurement, value
+        self,
+        key,
+        name,
+        icon,
+        device_class,
+        native_unit_of_measurement,
+        value,
+        format=None,
     ):
         super().__init__(key)
         self.key = key
@@ -152,6 +161,7 @@ class FiskerEntityDescription(SensorEntityDescription):
             self.device_class = device_class
         self.native_unit_of_measurement = native_unit_of_measurement
         self.value = value
+        self.format = format
 
     def get_digital_twin_value(self, data):
         return self.value(data, self.key)
