@@ -3,8 +3,18 @@
 
 Custom component for getting information about your Fisker Ocean presented in Home Assistant.
 
+## Target
+The project is meant to get all available sensor values from Fisker Ocean cars.
+
+## Method
+I reverse engineered the api used together with the official 'My Fisker' mobile app.
+Utilizing this, I then at regularly intervals poll the cloud service for the cars digital twin.
+
+## Sensors
+All values exposed by the cloud api are available as sensors in Home Assistant.
+
 # Features
-- Provides sensors for various part of the vehicle
+The buttons available in the official app, is also available in this integration as 'buttons'.
 
 <img src="https://github.com/MichaelOE/home-assistant-MyFisker/assets/37800126/55d11a02-86ec-48ad-978b-2ea01c27f41f" width="400" title="Screenshot"/>
 <img src="https://github.com/MichaelOE/home-assistant-MyFisker/assets/37800126/a57eb9a7-2d01-4fdc-a29f-da1f757878e1" width="400" title="Screenshot"/>
