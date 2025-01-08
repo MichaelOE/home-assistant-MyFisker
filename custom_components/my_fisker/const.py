@@ -2,8 +2,11 @@
 
 DOMAIN = "my_fisker"
 
+MANUCFACTURER = "Fisker inc."
+MODEL = "Fisker (Ocean)"
+
 API_TIMEOUT = 10
-DEFAULT_SCAN_INTERVAL = 60
+DEFAULT_SCAN_INTERVAL = 30
 
 TOKEN_URL = "https://auth.fiskerdps.com/auth/login"
 WSS_URL_EU = "wss://gw.cec-euprd.fiskerinc.com/mobile"

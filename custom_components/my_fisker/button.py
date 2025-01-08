@@ -13,8 +13,8 @@ from homeassistant.helpers.entity import EntityDescription
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from . import MyFiskerCoordinator
-from .const import DOMAIN
 from .api import MyFiskerAPI
+from .const import DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 

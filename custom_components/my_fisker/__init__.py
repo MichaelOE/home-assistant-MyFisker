@@ -27,11 +27,7 @@ _LOGGER = logging.getLogger(__name__)
 
 # TODO List the platforms that you want to support.
 # For your initial PR, limit it to 1 platform.
-PLATFORMS: list[Platform] = [
-    Platform.BUTTON,
-    Platform.BINARY_SENSOR,
-    Platform.SENSOR,
-]
+PLATFORMS: list[Platform] = [Platform.BINARY_SENSOR, Platform.BUTTON, Platform.SENSOR]
 
 
 async def async_setup(hass: HomeAssistant, config: dict):
@@ -116,6 +112,7 @@ class MyFiskerCoordinator(DataUpdateCoordinator):
             # Polling interval. Will only be polled if there are subscribers.
             update_interval=timedelta(seconds=30),
         )
+        self._hass = hass
         self.my_fisker_api = my_api
         self._alias = alias
         self.tripstats: TripStats = TripStats()
@@ -127,6 +124,24 @@ class MyFiskerCoordinator(DataUpdateCoordinator):
             async with asyncio.timeout(30):
                 await self.my_fisker_api.GetAuthTokenAsync()
                 retData = await self.my_fisker_api.GetDigitalTwin()
+
+                self._previous_update_interval = self.update_interval
+
+                # Dynamic refresh rate, based on door lock status
+                if retData.get("door_locks_driver") is True:
+                    self.update_interval = timedelta(seconds=60)
+                else:
+                    self.update_interval = timedelta(seconds=20)
+
+                # Log only if the update interval has changed
+                if self.update_interval != self._previous_update_interval:
+                    _LOGGER.info(
+                        "Fisker refresh rate changed from %s to %s",
+                        self._previous_update_interval,
+                        self.update_interval,
+                    )
+                    # Trigger an immediate refresh to apply the new interval
+                    await self.async_refresh()
 
                 return retData
         except:
@@ -170,19 +185,6 @@ class FiskerEntityDescription(SensorEntityDescription):
         return self.findInArray(
             data, self.key.replace("car_settings_", "").replace("_updated", "")
         )
-        # return self.value(data, self.key.replace("car_settings_", ""))
-
-    # @property
-    # def battery_capacity(self) -> int:
-    #     # VCF1Z = One, VCF1E = Extreme, VCF1U = Ultra VCF1S = Sport
-    #     trim_extreme_ultra = ["VCF1Z", "VCF1E", "VCF1U"]
-    #     trim_sport = ["VCF1s"]
-    #     if self.vin[0:5] in trim_extreme_ultra:
-    #         return TRIM_EXTREME_ULTRA_BATT_CAPACITY
-    #     if self.vin[0:5] in trim_sport:
-    #         return TRIM_SPORT_BATT_CAPACITY
-    #     else:
-    #         return 0
 
     def findInArray(self, jsonArray: str, nameToSearch: str):
         # Loop through the array

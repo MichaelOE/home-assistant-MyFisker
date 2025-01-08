@@ -1,4 +1,5 @@
-# import asyncio
+"""Class to handle connections towards Fisker API servers."""
+
 import json
 import logging
 
@@ -112,6 +113,9 @@ class MyFiskerAPI:
         # km to miles
         digital_twin["vehicle_speed"]["speed"] = round(
             digital_twin["vehicle_speed"]["speed"] * 0.621371, None
+        )
+        digital_twin["battery"]["max_miles"] = round(
+            digital_twin["battery"]["max_miles"] * 0.621371, None
         )
         digital_twin["battery"]["total_mileage_odometer"] = round(
             digital_twin["battery"]["total_mileage_odometer"] * 0.621371, None

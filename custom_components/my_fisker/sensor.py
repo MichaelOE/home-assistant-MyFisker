@@ -5,22 +5,20 @@ from __future__ import annotations
 from datetime import datetime
 import logging
 
+import pytz
+
+from config.custom_components.my_fisker.entities import (
+    SENSORS_CAR_SETTINGS,
+    SENSORS_DIGITAL_TWIN,
+    SENSORS_ChargeStat,
+    SENSORS_tripSTAT,
+)
 from homeassistant.components.sensor import (
     SensorDeviceClass,
     SensorEntity,
-    SensorEntityDescription,
     SensorStateClass,
 )
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import (
-    CONF_UNIT_OF_MEASUREMENT,
-    PERCENTAGE,
-    UnitOfEnergy,
-    UnitOfLength,
-    UnitOfSpeed,
-    UnitOfTemperature,
-    UnitOfTime,
-)
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
@@ -30,6 +28,8 @@ from .const import (
     CLIMATE_CONTROL_SEAT_HEAT,
     DOMAIN,
     LIST_CLIMATE_CONTROL_SEAT_HEAT,
+    MANUCFACTURER,
+    MODEL,
     TRIM_EXTREME_ULTRA_BATT_CAPACITY,
     TRIM_SPORT_BATT_CAPACITY,
 )
@@ -63,11 +63,9 @@ class FiskerSensor(CoordinatorEntity, SensorEntity):
         if sensor.native_unit_of_measurement:
             self._attr_native_unit_of_measurement = sensor.native_unit_of_measurement
             self._attr_state_class = SensorStateClass.MEASUREMENT
-            self._attr_unit_of_measurement
-        else:
-            if "seat_heat" in self.entity_description.key:
-                self._attr_options = LIST_CLIMATE_CONTROL_SEAT_HEAT
-                self._attr_device_class = SensorDeviceClass.ENUM
+        elif "seat_heat" in self.entity_description.key:
+            self._attr_options = LIST_CLIMATE_CONTROL_SEAT_HEAT
+            self._attr_device_class = SensorDeviceClass.ENUM
 
     @property
     def device_info(self):
@@ -79,8 +77,8 @@ class FiskerSensor(CoordinatorEntity, SensorEntity):
                 # Unique identifiers within a specific domain
                 (DOMAIN, self._coordinator.data["vin"])
             },
-            "manufacturer": "Fisker inc.",
-            "model": "Fisker (Ocean)",
+            "manufacturer": MANUCFACTURER,
+            "model": MODEL,
             "name": self._coordinator._alias,
         }
 
@@ -127,6 +125,12 @@ class FiskerSensor(CoordinatorEntity, SensorEntity):
 
             if "seat_heat" in self.entity_description.key:
                 self._attr_native_value = CLIMATE_CONTROL_SEAT_HEAT[value][0]
+            elif "updated" in self.entity_description.key:
+                utc_timestamp = value  #'2025-01-02T13:32:49.585703Z'
+                utc_time = datetime.fromisoformat(utc_timestamp.replace("Z", "+00:00"))
+                hass_tz = self._coordinator._hass.config.time_zone
+                local_time = utc_time.astimezone(pytz.timezone(hass_tz))
+                self._attr_native_value = local_time.strftime("%Y-%m-%d %H:%M:%S")
             else:
                 self._attr_native_value = value
 
@@ -140,7 +144,11 @@ class FiskerSensor(CoordinatorEntity, SensorEntity):
         value = self.entity_description.get_car_settings_value(carSetting)
 
         if "_updated" in key:
-            value = value["updated"]
+            utc_timestamp = value["updated"]  #'2025-01-02T13:32:49.585703Z'
+            utc_time = datetime.fromisoformat(utc_timestamp.replace("Z", "+00:00"))
+            hass_tz = self._coordinator._hass.config.time_zone
+            local_time = utc_time.astimezone(pytz.timezone(hass_tz))
+            value = local_time.strftime("%Y-%m-%d %H:%M:%S")
         else:
             value = value["value"]
 
@@ -148,33 +156,37 @@ class FiskerSensor(CoordinatorEntity, SensorEntity):
 
     def handle_tripstats(self, key):
         batt_factor = self.battery_capacity / 100
+        value = None
+
         if "battery" in key:
             value = round(self._coordinator.tripstats.batt * batt_factor, 2)
 
-        if "distance" in key:
+        elif "distance" in key:
             value = self._coordinator.tripstats.dist
 
-        if "duration" in key:
+        elif "duration" in key:
             value = self._coordinator.tripstats.time
 
-        if "_efficiency" in key:
+        elif "_efficiency" in key:
             value = round(self._coordinator.tripstats.efficiency * batt_factor, 2)
 
-        if "_efficiency_dist" in key:
+        elif "_efficiency_dist" in key:
             value = round(self._coordinator.tripstats.efficiency_dist * batt_factor, 2)
 
-        if "_prevefficiency" in key:
+        elif "_prevefficiency" in key:
             value = round(
                 self._coordinator.tripstats.previous_efficiency * batt_factor, 2
             )
 
-        if "speed" in key:
+        elif "speed" in key:
             value = self._coordinator.tripstats.average_speed
 
         return value
 
     def handle_chargestats(self, key):
         batt_factor = self.battery_capacity / 100
+        value = None
+
         if "battery" in key:
             value = round(self._coordinator.chargestats.batt * batt_factor, 2)
 
@@ -262,6 +274,7 @@ class FiskerSensor(CoordinatorEntity, SensorEntity):
                     self._coordinator.tripstats.add_distance(
                         self._coordinator.data[self.idx[1]]
                     )
+
         elif carEndedDriving:
             pass
 
@@ -335,10 +348,10 @@ class FiskerSensor(CoordinatorEntity, SensorEntity):
     def state(self):
         try:
             retVal = self._attr_native_value
-            if self.entity_description.format != None:
-                parsed_datetime = datetime.strptime(retVal, "%Y-%m-%dT%H:%M:%S.%fZ")
-                # Convert to the desired output format
-                retVal = parsed_datetime.strftime(self.entity_description.format)
+            # if self.entity_description.format != None:
+            #     parsed_datetime = datetime.strptime(retVal, "%Y-%m-%dT%H:%M:%S.%fZ")
+            #     # Convert to the desired output format
+            #     retVal = parsed_datetime.strftime(self.entity_description.format)
 
             state = retVal
 
@@ -373,14 +386,26 @@ async def async_setup_entry(
         else:
             entities.append(FiskerSensor(coordinator, idx, sens, my_Fisker_data))
 
-    for sensor in SENSORS_CAR_SETTINGS:
-        entities.append(FiskerSensor(coordinator, 100, sensor, my_Fisker_data))
+    entities.extend(
+        [
+            FiskerSensor(coordinator, 100, sensor, my_Fisker_data)
+            for sensor in SENSORS_CAR_SETTINGS
+        ]
+    )
 
-    for sensor in SENSORS_tripSTAT:
-        entities.append(FiskerSensor(coordinator, 200, sensor, my_Fisker_data))
+    entities.extend(
+        [
+            FiskerSensor(coordinator, 200, sensor, my_Fisker_data)
+            for sensor in SENSORS_tripSTAT
+        ]
+    )
 
-    for sensor in SENSORS_ChargeStat:
-        entities.append(FiskerSensor(coordinator, 300, sensor, my_Fisker_data))
+    entities.extend(
+        [
+            FiskerSensor(coordinator, 300, sensor, my_Fisker_data)
+            for sensor in SENSORS_ChargeStat
+        ]
+    )
 
     # Add entities to Home Assistant
     async_add_entities(entities)
@@ -389,410 +414,3 @@ async def async_setup_entry(
 async def async_setup_platform(hass, config, async_add_entities, discovery_info=None):
     # Code for setting up your platform inside of the event loop
     _LOGGER.debug("async_setup_platform")
-
-
-SENSORS_DIGITAL_TWIN: tuple[SensorEntityDescription, ...] = (
-    FiskerEntityDescription(
-        key="battery_avg_cell_temp",
-        name="Battery avg. cell temp",
-        icon="mdi:thermometer",
-        device_class=SensorDeviceClass.TEMPERATURE,
-        native_unit_of_measurement=UnitOfTemperature.CELSIUS,
-        value=lambda data, key: data[key],
-    ),
-    FiskerEntityDescription(
-        key="battery_charge_type",
-        name="Battery charge type",
-        icon="mdi:car",
-        device_class=None,
-        native_unit_of_measurement=None,
-        value=lambda data, key: data[key],
-    ),
-    FiskerEntityDescription(
-        key="battery_max_miles",
-        name="Battery max miles",
-        icon="mdi:car",
-        device_class=SensorDeviceClass.DISTANCE,
-        native_unit_of_measurement=UnitOfLength.KILOMETERS,
-        value=lambda data, key: data[key],
-    ),
-    FiskerEntityDescription(
-        key="battery_percent",
-        name="Battery percent",
-        icon="mdi:battery-70",
-        device_class=SensorDeviceClass.ENERGY_STORAGE,
-        native_unit_of_measurement=PERCENTAGE,
-        value=lambda data, key: data[key],
-    ),
-    FiskerEntityDescription(
-        key="battery_remaining_charging_time",
-        name="Battery remaining charging time",
-        icon="mdi:battery-clock-outline",
-        device_class=SensorDeviceClass.DURATION,
-        native_unit_of_measurement=UnitOfTime.MINUTES,
-        value=lambda data, key: data[key],
-    ),
-    FiskerEntityDescription(
-        key="battery_remaining_charging_time_full",
-        name="Battery remaining charging time full",
-        icon="mdi:battery-clock-outline",
-        device_class=SensorDeviceClass.DURATION,
-        native_unit_of_measurement=UnitOfTime.MINUTES,
-        value=lambda data, key: data[key],
-    ),
-    FiskerEntityDescription(
-        key="battery_state_of_charge",
-        name="Battery state of charge",
-        icon="mdi:car-electric",
-        device_class=SensorDeviceClass.ENERGY_STORAGE,
-        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
-        value=lambda data, key: data[key],
-    ),
-    FiskerEntityDescription(
-        key="battery_total_mileage_odometer",
-        name="Battery total mileage odometer",
-        icon="mdi:counter",
-        device_class=SensorDeviceClass.DISTANCE,
-        native_unit_of_measurement=UnitOfLength.KILOMETERS,
-        value=lambda data, key: data[key],
-    ),
-    FiskerEntityDescription(
-        key="climate_control_ambient_temperature",
-        name="Ambient temperature",
-        icon="mdi:thermometer",
-        device_class=SensorDeviceClass.TEMPERATURE,
-        native_unit_of_measurement=UnitOfTemperature.CELSIUS,
-        value=lambda data, key: data[key],
-    ),
-    FiskerEntityDescription(
-        key="climate_control_cabin_temperature",
-        name="Cabin temperature",
-        icon="mdi:temperature-celsius",
-        device_class=SensorDeviceClass.TEMPERATURE,
-        native_unit_of_measurement=UnitOfTemperature.CELSIUS,
-        value=lambda data, key: data[key],
-    ),
-    FiskerEntityDescription(
-        key="climate_control_driver_seat_heat",
-        name="Driver seat heating",
-        icon="mdi:car-seat-heater",
-        device_class=None,
-        native_unit_of_measurement=None,
-        value=lambda data, key: data[key],
-    ),
-    FiskerEntityDescription(
-        key="climate_control_internal_temperature",
-        name="Internal temperature",
-        icon="mdi:thermometer",
-        device_class=SensorDeviceClass.TEMPERATURE,
-        native_unit_of_measurement=UnitOfTemperature.CELSIUS,
-        value=lambda data, key: data[key],
-    ),
-    FiskerEntityDescription(
-        key="climate_control_passenger_seat_heat",
-        name="Passenger seat heating",
-        icon="mdi:car-seat-heater",
-        device_class=None,
-        native_unit_of_measurement=None,
-        value=lambda data, key: data[key],
-    ),
-    FiskerEntityDescription(
-        key="climate_control_rear_defrost",
-        name="Rear window defrost",
-        icon="mdi:car-defrost-rear",
-        device_class=None,
-        native_unit_of_measurement=None,
-        value=lambda data, key: data[key],
-    ),
-    FiskerEntityDescription(
-        key="ip",
-        name="IP address",
-        icon="mdi:ip",
-        device_class=None,
-        native_unit_of_measurement=None,
-        value=lambda data, key: data[key],
-    ),
-    FiskerEntityDescription(
-        key="location_altitude",
-        name="Location altitude",
-        icon="mdi:altimeter",
-        device_class=SensorDeviceClass.DISTANCE,
-        native_unit_of_measurement=UnitOfLength.METERS,
-        value=lambda data, key: data[key],
-    ),
-    FiskerEntityDescription(
-        key="location_latitude",
-        name="Location latitude",
-        icon="mdi:map-marker-radius",
-        device_class=None,
-        native_unit_of_measurement=None,
-        value=lambda data, key: data[key],
-    ),
-    FiskerEntityDescription(
-        key="location_longitude",
-        name="Location longitude",
-        icon="mdi:map-marker-radius",
-        device_class=None,
-        native_unit_of_measurement=None,
-        value=lambda data, key: data[key],
-    ),
-    FiskerEntityDescription(
-        key="trex_version",
-        name="Trex version",
-        icon="mdi:car-info",
-        device_class=None,
-        native_unit_of_measurement=None,
-        value=lambda data, key: data[key],
-    ),
-    FiskerEntityDescription(
-        key="updated",
-        name="Last updated",
-        icon="mdi:car-info",
-        device_class=None,
-        native_unit_of_measurement=None,
-        value=lambda data, key: data[key],
-        format="%Y-%m-%d %H:%M:%S",
-    ),
-    FiskerEntityDescription(
-        key="vehicle_speed_speed",
-        name="Vehicle speed",
-        icon="mdi:speedometer",
-        device_class=SensorDeviceClass.SPEED,
-        native_unit_of_measurement=UnitOfSpeed.KILOMETERS_PER_HOUR,
-        value=lambda data, key: data[key],
-    ),
-    FiskerEntityDescription(
-        key="vin",
-        name="VIN no",
-        icon="mdi:car-info",
-        device_class=None,
-        native_unit_of_measurement=None,
-        value=lambda data, key: data[key],
-    ),
-    FiskerEntityDescription(
-        key="windows_left_front",
-        name="Window front left",
-        icon="mdi:car-door",
-        device_class=None,
-        native_unit_of_measurement=None,
-        value=lambda data, key: data[key],
-    ),
-    FiskerEntityDescription(
-        key="windows_left_rear",
-        name="window rear left",
-        icon="mdi:car-door",
-        device_class=None,
-        native_unit_of_measurement=None,
-        value=lambda data, key: data[key],
-    ),
-    FiskerEntityDescription(
-        key="windows_left_rear_quarter",
-        name="Window rear quarter left",
-        icon="mdi:car-door",
-        device_class=None,
-        native_unit_of_measurement=None,
-        value=lambda data, key: data[key],
-    ),
-    FiskerEntityDescription(
-        key="windows_rear_windshield",
-        name="window windshield rear",
-        icon="mdi:car-door",
-        device_class=None,
-        native_unit_of_measurement=None,
-        value=lambda data, key: data[key],
-    ),
-    FiskerEntityDescription(
-        key="windows_right_front",
-        name="Window front right",
-        icon="mdi:car-door",
-        device_class=None,
-        native_unit_of_measurement=None,
-        value=lambda data, key: data[key],
-    ),
-    FiskerEntityDescription(
-        key="windows_right_rear",
-        name="Window rear right",
-        icon="mdi:car-door",
-        device_class=None,
-        native_unit_of_measurement=None,
-        value=lambda data, key: data[key],
-    ),
-    FiskerEntityDescription(
-        key="windows_right_rear_quarter",
-        name="Window rear quarter right",
-        icon="mdi:car-door",
-        device_class=None,
-        native_unit_of_measurement=None,
-        value=lambda data, key: data[key],
-    ),
-    FiskerEntityDescription(
-        key="windows_sunroof",
-        name="Window Sunroof",
-        icon="mdi:car-select",
-        device_class=None,
-        native_unit_of_measurement=None,
-        value=lambda data, key: data[key],
-    ),
-)
-
-SENSORS_CAR_SETTINGS: tuple[SensorEntityDescription, ...] = (
-    FiskerEntityDescription(
-        key="car_settings_os_version",
-        name="OS version",
-        icon="mdi:car-info",
-        device_class=None,
-        native_unit_of_measurement=None,
-        value=lambda data, key: data[key],
-    ),
-    FiskerEntityDescription(
-        key="car_settings_os_version_updated",
-        name="OS version date",
-        icon="mdi:car-info",
-        device_class=None,
-        native_unit_of_measurement=None,
-        value=lambda data, key: data[key],
-        format="%Y-%m-%d %H:%M",
-    ),
-    # FiskerEntityDescription(
-    #     key="car_settings_flashpack_number",
-    #     name="Flash pack no",
-    #     icon="mdi:car-info",
-    #     device_class=None,
-    #     native_unit_of_measurement=None,
-    #     value=lambda data, key: data[key],
-    # ),
-    # FiskerEntityDescription(
-    #     key="car_settings_flashpack_number_updated",
-    #     name="Flash pack no date",
-    #     icon="mdi:car-info",
-    #     device_class=None,
-    #     native_unit_of_measurement=None,
-    #     value=lambda data, key: data[key],
-    # ),
-    FiskerEntityDescription(
-        key="car_settings_BODY_COLOR",
-        name="Body color",
-        icon="mdi:car-info",
-        device_class=None,
-        native_unit_of_measurement=None,
-        value=lambda data, key: data[key],
-    ),
-    FiskerEntityDescription(
-        key="car_settings_DELIVERY_DESTINATION",
-        name="Delivery country",
-        icon="mdi:car-info",
-        device_class=None,
-        native_unit_of_measurement=None,
-        value=lambda data, key: data[key],
-    ),
-)
-
-SENSORS_tripSTAT: tuple[SensorEntityDescription, ...] = (
-    FiskerEntityDescription(
-        key="tripstat_distance",
-        name="Trip distance",
-        icon="mdi:map-marker-distance",
-        device_class=SensorDeviceClass.DISTANCE,
-        native_unit_of_measurement=UnitOfLength.KILOMETERS,
-        value=lambda data, key: data[key],
-    ),
-    FiskerEntityDescription(
-        key="tripstat_duration",
-        name="Trip duration",
-        icon="mdi:car-clock",
-        device_class=SensorDeviceClass.DURATION,
-        native_unit_of_measurement=None,
-        value=lambda data, key: data[key],
-    ),
-    FiskerEntityDescription(
-        key="tripstat_battery",
-        name="Trip energy",
-        icon="mdi:battery-minus",
-        device_class=SensorDeviceClass.ENERGY,
-        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
-        value=lambda data, key: data[key],
-    ),
-    FiskerEntityDescription(
-        key="tripstat_efficiency",
-        name="Trip efficiency",
-        icon="mdi:car-cruise-control",
-        device_class=SensorDeviceClass.ENERGY,
-        native_unit_of_measurement="kWh/km",
-        value=lambda data, key: data[key],
-    ),
-    FiskerEntityDescription(
-        key="tripstat_efficiency_dist",
-        name="Trip efficiency distance",
-        icon="mdi:car-cruise-control",
-        device_class=SensorDeviceClass.DISTANCE,
-        native_unit_of_measurement="km/kWh",
-        value=lambda data, key: data[key],
-    ),
-    FiskerEntityDescription(
-        key="tripstat_speed",
-        name="Trip speed",
-        icon="mdi:speedometer",
-        device_class=SensorDeviceClass.SPEED,
-        native_unit_of_measurement=UnitOfSpeed.KILOMETERS_PER_HOUR,
-        value=lambda data, key: data[key],
-    ),
-    FiskerEntityDescription(
-        key="tripstat_prevefficiency",
-        name="Previous trip efficiency",
-        icon="mdi:car-cruise-control",
-        device_class=SensorDeviceClass.ENERGY,
-        native_unit_of_measurement="kWh/km",
-        value=lambda data, key: data[key],
-    ),
-)
-
-SENSORS_ChargeStat: tuple[SensorEntityDescription, ...] = (
-    FiskerEntityDescription(
-        key="chargestat_distance",
-        name="charge distance",
-        icon="mdi:map-marker-distance",
-        device_class=SensorDeviceClass.DISTANCE,
-        native_unit_of_measurement=UnitOfLength.KILOMETERS,
-        value=lambda data, key: data[key],
-    ),
-    FiskerEntityDescription(
-        key="chargestat_duration",
-        name="charge duration",
-        icon="mdi:car-clock",
-        device_class=SensorDeviceClass.DURATION,
-        native_unit_of_measurement=None,
-        value=lambda data, key: data[key],
-    ),
-    FiskerEntityDescription(
-        key="chargestat_battery",
-        name="charge energy",
-        icon="mdi:battery-minus",
-        device_class=SensorDeviceClass.ENERGY,
-        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
-        value=lambda data, key: data[key],
-    ),
-    FiskerEntityDescription(
-        key="chargestat_efficiency",
-        name="charge efficiency",
-        icon="mdi:car-cruise-control",
-        device_class=SensorDeviceClass.ENERGY,
-        native_unit_of_measurement="kWh/km",
-        value=lambda data, key: data[key],
-    ),
-    FiskerEntityDescription(
-        key="chargestat_speed",
-        name="charge speed",
-        icon="mdi:speedometer",
-        device_class=SensorDeviceClass.SPEED,
-        native_unit_of_measurement=UnitOfSpeed.KILOMETERS_PER_HOUR,
-        value=lambda data, key: data[key],
-    ),
-    FiskerEntityDescription(
-        key="chargestat_prevefficiency",
-        name="Previous charge efficiency",
-        icon="mdi:car-cruise-control",
-        device_class=SensorDeviceClass.ENERGY,
-        native_unit_of_measurement="kWh/km",
-        value=lambda data, key: data[key],
-    ),
-)
