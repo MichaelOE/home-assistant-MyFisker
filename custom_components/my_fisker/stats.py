@@ -54,6 +54,11 @@ class TripStats(object):
     def batt(self):
         if not self.vehicleParked:
             self._batt = self.qBatt[0].value - self.qBatt[-1].value
+        
+        # Adds an 'extra percent' due to the battery counting backwards
+        # and have probably used the existing percent also
+        if self._batt > 0:
+            return self._batt + 1
 
         return self._batt
 
