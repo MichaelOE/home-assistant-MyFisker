@@ -7,12 +7,6 @@ import logging
 
 import pytz
 
-from config.custom_components.my_fisker.entities import (
-    SENSORS_CAR_SETTINGS,
-    SENSORS_DIGITAL_TWIN,
-    SENSORS_ChargeStat,
-    SENSORS_tripSTAT,
-)
 from homeassistant.components.sensor import (
     SensorDeviceClass,
     SensorEntity,
@@ -23,7 +17,7 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from . import FiskerEntityDescription, MyFiskerCoordinator
+from . import FiskerSensorEntityDescription, MyFiskerCoordinator
 from .const import (
     CLIMATE_CONTROL_SEAT_HEAT,
     DOMAIN,
@@ -32,6 +26,12 @@ from .const import (
     MODEL,
     TRIM_EXTREME_ULTRA_BATT_CAPACITY,
     TRIM_SPORT_BATT_CAPACITY,
+)
+from .entities_sensor import (
+    SENSORS_CAR_SETTINGS,
+    SENSORS_DIGITAL_TWIN,
+    SENSORS_ChargeStat,
+    SENSORS_tripSTAT,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -44,7 +44,7 @@ class FiskerSensor(CoordinatorEntity, SensorEntity):
         self,
         coordinator: MyFiskerCoordinator,
         idx,
-        sensor: FiskerEntityDescription,
+        sensor: FiskerSensorEntityDescription,
         client,
     ):
         """Pass coordinator to CoordinatorEntity."""
@@ -54,7 +54,7 @@ class FiskerSensor(CoordinatorEntity, SensorEntity):
         self._data = client
         self._coordinator = coordinator
         self.vin = self._coordinator.data["vin"]
-        self.entity_description: FiskerEntityDescription = sensor
+        self.entity_description: FiskerSensorEntityDescription = sensor
         self._attr_unique_id = f"{self._coordinator.data['vin']}_{sensor.key}"
         self._attr_name = f"{self._coordinator._alias} {sensor.name}"
 
@@ -386,26 +386,9 @@ async def async_setup_entry(
         else:
             entities.append(FiskerSensor(coordinator, idx, sens, my_Fisker_data))
 
-    entities.extend(
-        [
-            FiskerSensor(coordinator, 100, sensor, my_Fisker_data)
-            for sensor in SENSORS_CAR_SETTINGS
-        ]
-    )
-
-    entities.extend(
-        [
-            FiskerSensor(coordinator, 200, sensor, my_Fisker_data)
-            for sensor in SENSORS_tripSTAT
-        ]
-    )
-
-    entities.extend(
-        [
-            FiskerSensor(coordinator, 300, sensor, my_Fisker_data)
-            for sensor in SENSORS_ChargeStat
-        ]
-    )
+    entities.extend(FiskerSensor(coordinator, 100, sensor, my_Fisker_data) for sensor in SENSORS_CAR_SETTINGS)
+    entities.extend(FiskerSensor(coordinator, 200, sensor, my_Fisker_data) for sensor in SENSORS_tripSTAT)
+    entities.extend(FiskerSensor(coordinator, 300, sensor, my_Fisker_data) for sensor in SENSORS_ChargeStat)
 
     # Add entities to Home Assistant
     async_add_entities(entities)

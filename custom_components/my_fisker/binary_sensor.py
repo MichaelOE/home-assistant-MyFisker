@@ -1,13 +1,15 @@
+"""Platform for binary_sensor integration."""
+
 import logging
 
-from homeassistant.components.sensor import SensorEntityDescription
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from . import FiskerEntityDescription
+from . import FiskerSensorEntityDescription
 from .const import CLIMATE_CONTROL_STEERING_WHEEL_HEAT, DOMAIN, DOOR_LOCK, GEAR_IN_PARK
+from .entities_binary_sensor import BINARY_SENSORS
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -38,7 +40,7 @@ async def async_setup_entry(
 class FiskerSensor(CoordinatorEntity):
     """Sensor used by all Fisker entities, inherits from CoordinatorEntity."""
 
-    def __init__(self, coordinator, idx, sensor: FiskerEntityDescription, client):
+    def __init__(self, coordinator, idx, sensor: FiskerSensorEntityDescription, client):
         """Pass coordinator to CoordinatorEntity."""
         super().__init__(coordinator, context=idx)
         self.idx = idx
@@ -111,111 +113,4 @@ def get_sensor_by_key(key):
     for sensor in BINARY_SENSORS:
         if sensor.key == key:
             return sensor
-
-
-BINARY_SENSORS: tuple[SensorEntityDescription, ...] = (
-    FiskerEntityDescription(
-        key="climate_control_steering_wheel_heat",
-        name="Steering wheel heat",
-        icon="mdi:steering",
-        device_class=None,
-        native_unit_of_measurement=None,
-        value=lambda data, key: data[key],
-    ),
-    FiskerEntityDescription(
-        key="door_locks_all",
-        name="Door locks all",
-        icon="mdi:car-door-lock",
-        device_class=None,
-        native_unit_of_measurement=None,
-        value=lambda data, key: data[key],
-    ),
-    FiskerEntityDescription(
-        key="door_locks_driver",
-        name="Door locks driver",
-        icon="mdi:car-door-lock",
-        device_class=None,
-        native_unit_of_measurement=None,
-        value=lambda data, key: data[key],
-    ),
-    FiskerEntityDescription(
-        key="doors_hood",
-        name="Doors hood",
-        icon="mdi:car-door",
-        device_class=None,
-        native_unit_of_measurement=None,
-        value=lambda data, key: data[key],
-    ),
-    FiskerEntityDescription(
-        key="doors_left_front",
-        name="Door left front",
-        icon="mdi:car-door",
-        device_class=None,
-        native_unit_of_measurement=None,
-        value=lambda data, key: data[key],
-    ),
-    FiskerEntityDescription(
-        key="doors_left_rear",
-        name="Door left rear",
-        icon="mdi:car-door",
-        device_class=None,
-        native_unit_of_measurement=None,
-        value=lambda data, key: data[key],
-    ),
-    FiskerEntityDescription(
-        key="doors_right_front",
-        name="Door right front",
-        icon="mdi:car-door",
-        device_class=None,
-        native_unit_of_measurement=None,
-        value=lambda data, key: data[key],
-    ),
-    FiskerEntityDescription(
-        key="doors_right_rear",
-        name="Door right rear",
-        icon="mdi:car-door",
-        device_class=None,
-        native_unit_of_measurement=None,
-        value=lambda data, key: data[key],
-    ),
-    FiskerEntityDescription(
-        key="doors_trunk",
-        name="Door trunk",
-        icon="mdi:car-door",
-        device_class=None,
-        native_unit_of_measurement=None,
-        value=lambda data, key: data[key],
-    ),
-    FiskerEntityDescription(
-        key="gear_in_park",
-        name="Gear in park",
-        icon="mdi:car-brake-parking",
-        device_class=None,
-        native_unit_of_measurement=None,
-        value=lambda data, key: data[key],
-    ),
-    FiskerEntityDescription(
-        key="online",
-        name="Online State",
-        icon="mdi:car-connected",
-        device_class=None,
-        native_unit_of_measurement=None,
-        value=lambda data, key: data[key],
-    ),
-    FiskerEntityDescription(
-        key="online_hmi",
-        name="Online hmi",
-        icon="mdi:car-connected",
-        device_class=None,
-        native_unit_of_measurement=None,
-        value=lambda data, key: data[key],
-    ),
-    FiskerEntityDescription(
-        key="vehicle_ready_state_is_vehicle_ready",
-        name="Vehicle Ready",
-        icon="mdi:car-info",
-        device_class=None,
-        native_unit_of_measurement=None,
-        value=lambda data, key: data[key],
-    ),
-)
+    return None

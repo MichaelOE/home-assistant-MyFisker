@@ -2,42 +2,20 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import logging
 
-from homeassistant.components.button import ButtonEntity, ButtonEntityDescription
+from homeassistant.components.button import ButtonEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import HomeAssistantError
-from homeassistant.helpers.entity import EntityDescription
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from . import MyFiskerCoordinator
+from . import FiskerButtonEntityDescription, MyFiskerCoordinator
 from .api import MyFiskerAPI
 from .const import DOMAIN
+from .entities_button import BUTTON_ENTITIES
 
 _LOGGER = logging.getLogger(__name__)
-
-
-# class MyButton(ButtonEntity):
-#     def __init__(self):
-#         self._state = False
-
-#     @property
-#     def name(self):
-#         return "My Button"
-
-#     @property
-#     def state(self):
-#         return self._state
-
-#     def turn_on(self, **kwargs):
-#         self._state = True
-#         self.schedule_update_ha_state()
-
-#     def turn_off(self, **kwargs):
-#         self._state = False
-#         self.schedule_update_ha_state()
 
 
 class FiskerButton(ButtonEntity):
@@ -84,18 +62,6 @@ class FiskerButton(ButtonEntity):
         await self.coordinator._coordinator.async_request_refresh()
 
 
-@dataclass
-class FiskerButtonEntityDescription(ButtonEntityDescription):
-    """Describes MyFisker ID button entity."""
-
-    def __init__(self, key, name, translation_key, icon):
-        super().__init__(key)
-        self.key = key
-        self.name = name
-        self.translation_key = translation_key
-        self.icon = icon
-
-
 async def async_setup_entry(
     hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
 ) -> None:
@@ -109,31 +75,3 @@ async def async_setup_entry(
         entities.append(FiskerButton(coordinator, but))
 
     async_add_entities(entities, True)
-
-
-BUTTON_ENTITIES: list[EntityDescription] = [
-    FiskerButtonEntityDescription(
-        key="doors_unlock",
-        name="doors_unlock",
-        translation_key="doors_unlock",
-        icon="mdi:car-door-lock-open",
-    ),
-    FiskerButtonEntityDescription(
-        key="doors_lock",
-        name="doors_lock",
-        translation_key="doors_lock",
-        icon="mdi:car-door-lock",
-    ),
-    FiskerButtonEntityDescription(
-        key="trunk_open",
-        name="trunk_open",
-        translation_key="doors_lock",
-        icon="mdi:play-circle-outline",
-    ),
-    FiskerButtonEntityDescription(
-        key="trunk_close",
-        name="trunk_close",
-        translation_key="doors_lock",
-        icon="mdi:play-circle-outline",
-    ),
-]

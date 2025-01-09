@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from datetime import timedelta
 import logging
 
+from homeassistant.components.button import ButtonEntityDescription
 from homeassistant.components.sensor import SensorEntityDescription
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import (
@@ -25,8 +26,6 @@ from .stats import TripStats
 
 _LOGGER = logging.getLogger(__name__)
 
-# TODO List the platforms that you want to support.
-# For your initial PR, limit it to 1 platform.
 PLATFORMS: list[Platform] = [Platform.BINARY_SENSOR, Platform.BUTTON, Platform.SENSOR]
 
 
@@ -155,7 +154,19 @@ class MyFiskerCoordinator(DataUpdateCoordinator):
 
 
 @dataclass
-class FiskerEntityDescription(SensorEntityDescription):
+class FiskerButtonEntityDescription(ButtonEntityDescription):
+    """Describes MyFisker ID button entity."""
+
+    def __init__(self, key, name, translation_key, icon):
+        super().__init__(key)
+        self.key = key
+        self.name = name
+        self.translation_key = translation_key
+        self.icon = icon
+
+
+@dataclass
+class FiskerSensorEntityDescription(SensorEntityDescription):
     """Describes MyFisker ID sensor entity."""
 
     def __init__(
