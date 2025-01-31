@@ -31,9 +31,6 @@ Alternatively, you can get the custom repository here: https://github.com/Michae
 - Alias: Prefix, which is used on all entity names created by the integration
 
 # Usage
-The integration currently only supports reading of values.
-It is possible I will add 'commands' to the vehicle in the future.
-
 For showing the vehicle on a map, this can be used:
 
 ```python
