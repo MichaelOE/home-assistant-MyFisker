@@ -53,7 +53,7 @@ action:
 mode: single
 ```
 
-I have used apexchart for visualization.
+I have used [apexchart](https://github.com/RomRider/apexcharts-card) for visualization.
 In the screenshot above showing remaining range/battery I used the following (note the 'battery-calculation', which is because Fisker API sometimes returns zero miles):
 
 ```python
