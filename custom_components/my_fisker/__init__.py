@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import asyncio.timeouts
 from dataclasses import dataclass
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 import logging
+
+import pytz
 
 from homeassistant.components.button import ButtonEntityDescription
 from homeassistant.components.sensor import SensorEntityDescription
@@ -59,7 +61,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         coordinator,
     )
 
+    # Get the time difference between UTC and local time zone
+    utc_time = datetime.now(pytz.utc)
+    local_time = utc_time.astimezone(pytz.timezone(hass.config.time_zone))
+    coordinator.time_difference_from_utc = local_time.utcoffset()
+
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+
+    await coordinator.async_refresh()
 
     return True
 
@@ -112,8 +121,11 @@ class MyFiskerCoordinator(DataUpdateCoordinator):
             update_interval=timedelta(seconds=30),
         )
         self._hass = hass
+        self._previous_update_interval = self.update_interval
+
         self.my_fisker_api = my_api
-        self._alias = alias
+        self.alias = alias
+        self.time_difference_from_utc = None
         self.tripstats: TripStats = TripStats()
         self.chargestats: TripStats = TripStats()
 
@@ -157,12 +169,16 @@ class MyFiskerCoordinator(DataUpdateCoordinator):
 class FiskerButtonEntityDescription(ButtonEntityDescription):
     """Describes MyFisker ID button entity."""
 
-    def __init__(self, key, name, translation_key, icon):
+    def __init__(
+        self, key, name, translation_key, icon, command: str, command_data: str = None
+    ):
         super().__init__(key)
         self.key = key
         self.name = name
         self.translation_key = translation_key
         self.icon = icon
+        self.command = command
+        self.command_data = command_data
 
 
 @dataclass

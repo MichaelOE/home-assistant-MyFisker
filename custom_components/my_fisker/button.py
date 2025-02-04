@@ -26,12 +26,25 @@ class FiskerButton(ButtonEntity):
         # device_info: DeviceInfo,
     ) -> None:
         self.entity_description = description
-        self.coordinator: MyFiskerCoordinator = coordinator
+        self._coordinator: MyFiskerCoordinator = coordinator
+        # self.vin = self._coordinator.data["vin"]
         self._state = 0
-        self._attr_unique_id = (
-            f"{self.coordinator._coordinator.data['vin']}_{description.key}"
-        )
-        self._attr_name = f"{self.coordinator._coordinator._alias} {description.name}"
+        self._attr_unique_id = f"{self._coordinator.data['vin']}_{description.key}"
+        self._attr_name = f"{self._coordinator.alias} {description.name}"
+
+        _LOGGER.info(self._attr_unique_id)
+
+    @property
+    def name(self):
+        return self._attr_name
+
+    @property
+    def friendly_name(self):
+        return self.entity_description.name
+
+    # @property
+    # def is_on(self):
+    #     return self._state
 
     @property
     def state(self):
@@ -40,7 +53,6 @@ class FiskerButton(ButtonEntity):
     @callback
     def _handle_coordinator_update(self) -> None:
         try:
-            # self._update_from_zaptec()
             _LOGGER.info("Fisker: _handle_coordinator_update")
         except Exception as exc:
             raise HomeAssistantError(f"Error updating entity {self.key}") from exc
@@ -50,16 +62,22 @@ class FiskerButton(ButtonEntity):
         """Press the button."""
         _LOGGER.debug("Press %s", self.entity_description.key)
 
-        api: MyFiskerAPI = self.coordinator._coordinator.my_fisker_api
+        api: MyFiskerAPI = self._coordinator.my_fisker_api
 
         try:
-            await api.SendCommandRequest(self.entity_description.key)
+            if self.entity_description.command_data:
+                await api.SendCommandRequest(
+                    self.entity_description.command,
+                    self.entity_description.command_data,
+                )
+            else:
+                await api.SendCommandRequest(self.entity_description.command)
         except Exception as exc:
             raise HomeAssistantError(
                 f"Running command '{self.entity_description.key}' failed"
             ) from exc
 
-        await self.coordinator._coordinator.async_request_refresh()
+        await self._coordinator.async_request_refresh()
 
 
 async def async_setup_entry(
@@ -67,7 +85,9 @@ async def async_setup_entry(
 ) -> None:
     _LOGGER.debug("Setup buttons")
 
-    coordinator = hass.data[DOMAIN][entry.entry_id]
+    my_Fisker_data = hass.data[DOMAIN][entry.entry_id]
+
+    coordinator = my_Fisker_data._coordinator
 
     entities: list[FiskerButton] = []
 

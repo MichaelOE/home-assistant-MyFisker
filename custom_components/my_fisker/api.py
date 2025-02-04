@@ -2,6 +2,7 @@
 
 import json
 import logging
+import time
 
 import aiohttp
 
@@ -10,11 +11,12 @@ from .const import (
     CAR_SETTINGS,
     DIGITAL_TWIN,
     PROFILES,
-    TOKEN_URL,
     TRIM_EXTREME_ULTRA_BATT_CAPACITY,
     TRIM_SPORT_BATT_CAPACITY,
-    WSS_URL_EU,
-    WSS_URL_US,
+    URL_TOKEN,
+    URL_TOKEN_REFRESH,
+    URL_WSS_EU,
+    URL_WSS_US,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -39,31 +41,78 @@ class MyFiskerAPI:
         self._password = password
         self._region = region
 
-        self._token = ""
+        self._accessToken = ""
+        self._tokenExpiration = 0
+        self._refreshToken = ""
         self._timeout = aiohttp.ClientTimeout(total=API_TIMEOUT)
         self.data = {}
 
     async def GetAuthTokenAsync(self):
         """Get the Authentification token from Fisker, is used towards the WebSocket connection."""
 
+        if self._accessToken != "":
+            # Get the current timestamp in seconds (Unix timestamp)
+            current_timestamp = int(time.time()) / 60
+
+            # Check if the token has expired (less than 1 hour left)
+            if current_timestamp > (self._tokenExpiration / 60) - 60:
+                _LOGGER.debug("Token is valid for less than 1 hour.")
+                retVal = await self.RefreshAuthTokenAsync(
+                    self._accessToken, self._refreshToken
+                )
+                return retVal
+            else:
+                _LOGGER.debug("Token is still valid.")
+                return self._accessToken
+
+        _LOGGER.debug("Token empty or expired.")
+
         params = {"username": self._username, "password": self._password}
         async with (
             aiohttp.ClientSession() as session,
-            session.post(TOKEN_URL, data=params) as response,
+            session.post(URL_TOKEN, data=params) as response,
         ):
             data = await response.json()
 
             # Check if a key exists
             if "accessToken" in data:
                 retVal = data["accessToken"]
+                self._tokenExpiration = data["accessExpiration"]
+                self._refreshToken = data["refreshToken"]
             else:
                 retVal = data["message"]
 
-            self._token = retVal
-            return self._token
+            self._accessToken = retVal
+            return self._accessToken
+
+    async def RefreshAuthTokenAsync(self, bearerToken: str, refreshToken: str):
+        """Refresh the Authentification token from Fisker, is used towards the WebSocket connection."""
+
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {bearerToken}",
+        }
+        params = {"refresh_token": refreshToken}
+
+        async with (
+            aiohttp.ClientSession() as session,
+            session.post(URL_TOKEN_REFRESH, headers=headers, json=params) as response,
+        ):
+            data = await response.json()
+
+            # Check if the "accessToken" key exists in the response
+            if "accessToken" in data:
+                retVal = data["accessToken"]
+                self._tokenExpiration = data["accessExpiration"]
+                self._refreshToken = data["refreshToken"]
+                return self._accessToken
+            else:
+                retVal = data["error"]
+                _LOGGER.error(f"Token refresh error:  {retVal}")
+                return ""
 
     async def tokenReturn(self):
-        return self._token
+        return self._accessToken
 
     def GetCarSettings(self):
         try:
@@ -148,7 +197,7 @@ class MyFiskerAPI:
         messageData = {}
 
         # token = self.GetAuthToken(username, password)
-        token = self._token
+        token = self._accessToken
 
         data["token"] = token
         messageData["data"] = data
@@ -207,12 +256,14 @@ class MyFiskerAPI:
         result = item1
         return result
 
-    async def SendCommandRequest(self, command):
+    async def SendCommandRequest(self, command: str, command_data: str = ""):
         # _LOGGER.debug('Start SendCommandRequest()')
         data = {}
         messageData = {}
         data["vin"] = self.vin
         data["command"] = command
+        if data != "":
+            data["data"] = command_data
         messageData["data"] = data
         messageData["handler"] = "remote_command"
         return await self.__SendWebsocketRequest(messageData)
@@ -220,11 +271,11 @@ class MyFiskerAPI:
     def __GetRegionURL(self):
         match self._region:
             case "EU":
-                return WSS_URL_EU
+                return URL_WSS_EU
             case "US":
-                return WSS_URL_US
+                return URL_WSS_US
             case _:
-                return WSS_URL_US
+                return URL_WSS_US
 
     async def __GetWebsocketResponse(self, responseToReturn: str):
         HasAUTH = False

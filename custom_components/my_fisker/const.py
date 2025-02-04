@@ -8,9 +8,10 @@ MODEL = "Fisker (Ocean)"
 API_TIMEOUT = 10
 DEFAULT_SCAN_INTERVAL = 30
 
-TOKEN_URL = "https://auth.fiskerdps.com/auth/login"
-WSS_URL_EU = "wss://gw.cec-euprd.fiskerinc.com/mobile"
-WSS_URL_US = "wss://gw.cec-prd.fiskerinc.com/mobile"
+URL_TOKEN = "https://auth.fiskerdps.com/auth/login"
+URL_TOKEN_REFRESH = "https://auth.fiskerdps.com/auth/refresh"
+URL_WSS_EU = "wss://gw.cec-euprd.fiskerinc.com/mobile"
+URL_WSS_US = "wss://gw.cec-prd.fiskerinc.com/mobile"
 
 HANDLER_COMMAND = "remote_command"
 COMMAND_DOORS_UNLOCK = "doors_unlock"

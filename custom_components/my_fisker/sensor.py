@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 import logging
 
 import pytz
@@ -56,7 +56,7 @@ class FiskerSensor(CoordinatorEntity, SensorEntity):
         self.vin = self._coordinator.data["vin"]
         self.entity_description: FiskerSensorEntityDescription = sensor
         self._attr_unique_id = f"{self._coordinator.data['vin']}_{sensor.key}"
-        self._attr_name = f"{self._coordinator._alias} {sensor.name}"
+        self._attr_name = f"{self._coordinator.alias} {sensor.name}"
 
         _LOGGER.info(self._attr_unique_id)
 
@@ -79,7 +79,7 @@ class FiskerSensor(CoordinatorEntity, SensorEntity):
             },
             "manufacturer": MANUCFACTURER,
             "model": MODEL,
-            "name": self._coordinator._alias,
+            "name": self._coordinator.alias,
         }
 
     @property
@@ -126,10 +126,10 @@ class FiskerSensor(CoordinatorEntity, SensorEntity):
             if "seat_heat" in self.entity_description.key:
                 self._attr_native_value = CLIMATE_CONTROL_SEAT_HEAT[value][0]
             elif "updated" in self.entity_description.key:
-                utc_timestamp = value  #'2025-01-02T13:32:49.585703Z'
-                utc_time = datetime.fromisoformat(utc_timestamp.replace("Z", "+00:00"))
-                hass_tz = self._coordinator._hass.config.time_zone
-                local_time = utc_time.astimezone(pytz.timezone(hass_tz))
+                utc_time = datetime.fromisoformat(
+                    value.replace("Z", "+00:00")
+                )  # value = '2025-01-02T13:32:49.585703Z'
+                local_time = utc_time + self._coordinator.time_difference_from_utc
                 self._attr_native_value = local_time.strftime("%Y-%m-%d %H:%M:%S")
             else:
                 self._attr_native_value = value
@@ -386,9 +386,18 @@ async def async_setup_entry(
         else:
             entities.append(FiskerSensor(coordinator, idx, sens, my_Fisker_data))
 
-    entities.extend(FiskerSensor(coordinator, 100, sensor, my_Fisker_data) for sensor in SENSORS_CAR_SETTINGS)
-    entities.extend(FiskerSensor(coordinator, 200, sensor, my_Fisker_data) for sensor in SENSORS_tripSTAT)
-    entities.extend(FiskerSensor(coordinator, 300, sensor, my_Fisker_data) for sensor in SENSORS_ChargeStat)
+    entities.extend(
+        FiskerSensor(coordinator, 100, sensor, my_Fisker_data)
+        for sensor in SENSORS_CAR_SETTINGS
+    )
+    entities.extend(
+        FiskerSensor(coordinator, 200, sensor, my_Fisker_data)
+        for sensor in SENSORS_tripSTAT
+    )
+    entities.extend(
+        FiskerSensor(coordinator, 300, sensor, my_Fisker_data)
+        for sensor in SENSORS_ChargeStat
+    )
 
     # Add entities to Home Assistant
     async_add_entities(entities)

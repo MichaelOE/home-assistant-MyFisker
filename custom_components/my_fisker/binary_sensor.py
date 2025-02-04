@@ -48,7 +48,7 @@ class FiskerSensor(CoordinatorEntity):
         self._coordinator = coordinator
         self.entity_description = sensor
         self._attr_unique_id = f"{self._coordinator.data['vin']}_{sensor.key}"
-        self._attr_name = f"{self._coordinator._alias} {sensor.name}"
+        self._attr_name = f"{self._coordinator.alias} {sensor.name}"
 
         _LOGGER.info(self._attr_unique_id)
 
@@ -68,7 +68,7 @@ class FiskerSensor(CoordinatorEntity):
             },
             "manufacturer": "Fisker inc.",
             "model": "Fisker (Ocean)",
-            "name": self._coordinator._alias,
+            "name": self._coordinator.alias,
         }
 
     @property
