@@ -12,7 +12,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from . import FiskerButtonEntityDescription, MyFiskerCoordinator
 from .api import MyFiskerAPI
-from .const import DOMAIN
+from .const import DEVICE_MANUCFACTURER, DEVICE_MODEL, DOMAIN
 from .entities_button import BUTTON_ENTITIES
 
 _LOGGER = logging.getLogger(__name__)
@@ -33,6 +33,20 @@ class FiskerButton(ButtonEntity):
         self._attr_name = f"{self._coordinator.alias} {description.name}"
 
         _LOGGER.info(self._attr_unique_id)
+
+    @property
+    def device_info(self):
+        """Return device information about this entity."""
+
+        return {
+            "identifiers": {
+                # Unique identifiers within a specific domain
+                (DOMAIN, self._coordinator.data["vin"])
+            },
+            "manufacturer": DEVICE_MANUCFACTURER,
+            "model": DEVICE_MODEL,
+            "name": self._coordinator.alias,
+        }
 
     @property
     def name(self):
@@ -60,7 +74,7 @@ class FiskerButton(ButtonEntity):
 
     async def async_press(self) -> None:
         """Press the button."""
-        _LOGGER.debug("Press %s", self.entity_description.key)
+        _LOGGER.info("Press %s", self.entity_description.key)
 
         api: MyFiskerAPI = self._coordinator.my_fisker_api
 

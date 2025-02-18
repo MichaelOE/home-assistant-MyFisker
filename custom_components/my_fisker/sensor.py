@@ -20,10 +20,10 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from . import FiskerSensorEntityDescription, MyFiskerCoordinator
 from .const import (
     CLIMATE_CONTROL_SEAT_HEAT,
+    DEVICE_MANUCFACTURER,
+    DEVICE_MODEL,
     DOMAIN,
     LIST_CLIMATE_CONTROL_SEAT_HEAT,
-    MANUCFACTURER,
-    MODEL,
     TRIM_EXTREME_ULTRA_BATT_CAPACITY,
     TRIM_SPORT_BATT_CAPACITY,
 )
@@ -77,8 +77,8 @@ class FiskerSensor(CoordinatorEntity, SensorEntity):
                 # Unique identifiers within a specific domain
                 (DOMAIN, self._coordinator.data["vin"])
             },
-            "manufacturer": MANUCFACTURER,
-            "model": MODEL,
+            "manufacturer": DEVICE_MANUCFACTURER,
+            "model": DEVICE_MODEL,
             "name": self._coordinator.alias,
         }
 

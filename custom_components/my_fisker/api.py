@@ -55,17 +55,20 @@ class MyFiskerAPI:
             current_timestamp = int(time.time()) / 60
 
             # Check if the token has expired (less than 1 hour left)
-            if current_timestamp > (self._tokenExpiration / 60) - 60:
-                _LOGGER.debug("Token is valid for less than 1 hour.")
+            if current_timestamp > (self._tokenExpiration / 60) - 1437:
+                _LOGGER.warning(
+                    f"Token valid period is near end - expiration time: {self._tokenExpiration}."
+                )
                 retVal = await self.RefreshAuthTokenAsync(
                     self._accessToken, self._refreshToken
                 )
-                return retVal
+                self._accessToken = retVal
+                return self._accessToken
             else:
-                _LOGGER.debug("Token is still valid.")
+                _LOGGER.debug(f"Token is still valid until {self._tokenExpiration}")
                 return self._accessToken
 
-        _LOGGER.debug("Token empty or expired.")
+        _LOGGER.warning("Token empty or expired.")
 
         params = {"username": self._username, "password": self._password}
         async with (
@@ -79,6 +82,10 @@ class MyFiskerAPI:
                 retVal = data["accessToken"]
                 self._tokenExpiration = data["accessExpiration"]
                 self._refreshToken = data["refreshToken"]
+
+                _LOGGER.warning(
+                    f"GetAuthTokenAsync - expiration time: {self._tokenExpiration}"
+                )
             else:
                 retVal = data["message"]
 
@@ -105,6 +112,10 @@ class MyFiskerAPI:
                 retVal = data["accessToken"]
                 self._tokenExpiration = data["accessExpiration"]
                 self._refreshToken = data["refreshToken"]
+                _LOGGER.warning(
+                    f"RefreshAuthTokenAsync - new expiration time: {self._tokenExpiration}"
+                )
+                self._accessToken = retVal
                 return self._accessToken
             else:
                 retVal = data["error"]

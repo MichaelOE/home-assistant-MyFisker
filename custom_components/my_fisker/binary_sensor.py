@@ -8,7 +8,14 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from . import FiskerSensorEntityDescription
-from .const import CLIMATE_CONTROL_STEERING_WHEEL_HEAT, DOMAIN, DOOR_LOCK, GEAR_IN_PARK
+from .const import (
+    CLIMATE_CONTROL_STEERING_WHEEL_HEAT,
+    DEVICE_MANUCFACTURER,
+    DEVICE_MODEL,
+    DOMAIN,
+    DOOR_LOCK,
+    GEAR_IN_PARK,
+)
 from .entities_binary_sensor import BINARY_SENSORS
 
 _LOGGER = logging.getLogger(__name__)
@@ -59,15 +66,14 @@ class FiskerSensor(CoordinatorEntity):
     @property
     def device_info(self):
         """Return device information about this entity."""
-        _LOGGER.debug("My Fisker: device_info")
 
         return {
             "identifiers": {
                 # Unique identifiers within a specific domain
                 (DOMAIN, self._coordinator.data["vin"])
             },
-            "manufacturer": "Fisker inc.",
-            "model": "Fisker (Ocean)",
+            "manufacturer": DEVICE_MANUCFACTURER,
+            "model": DEVICE_MODEL,
             "name": self._coordinator.alias,
         }
 
@@ -78,6 +84,14 @@ class FiskerSensor(CoordinatorEntity):
     @callback
     def _handle_coordinator_update(self) -> None:
         """Handle updated data from the coordinator."""
+
+        try:
+            value = self._coordinator.data[self.idx[1]]
+        except KeyError:
+            _LOGGER.error(
+                f"binary_sensor: _handle_coordinator_update KeyError: {self.idx[1]}"
+            )
+            return
 
         value = self._coordinator.data[self.idx[1]]
 
