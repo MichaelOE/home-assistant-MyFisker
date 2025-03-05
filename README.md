@@ -111,4 +111,4 @@ series:
 
 
 [buymecoffeebadge]: https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png
-[michaelo-buymecoffee]: buymeacoffee.com/michaeloe
+[michaelo-buymecoffee]: https://buymeacoffee.com/michaeloe
