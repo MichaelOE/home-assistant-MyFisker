@@ -135,6 +135,7 @@ class MyFiskerCoordinator(DataUpdateCoordinator):
             async with asyncio.timeout(30):
                 await self.my_fisker_api.GetAuthTokenAsync()
                 retData = await self.my_fisker_api.GetDigitalTwin()
+                await self.my_fisker_api.GetCarSettings()
                 await self.my_fisker_api.GetProfiles()
 
                 self._previous_update_interval = self.update_interval

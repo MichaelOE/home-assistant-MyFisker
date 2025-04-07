@@ -126,8 +126,9 @@ class MyFiskerAPI:
         return self._accessToken
 
     async def GetCarSettings(self):
-        res = await self.__GetWebsocketResponse("car_settings")
-        return res
+        res = await self.__GetWebsocketResponse(CAR_SETTINGS)
+        self.data[CAR_SETTINGS] = self.ParseProfilesResponse(res)
+        return self.data[CAR_SETTINGS]
 
     async def GetDigitalTwin(self):
         self.data[DIGITAL_TWIN] = self.flatten_json(
@@ -138,9 +139,10 @@ class MyFiskerAPI:
         return self.data[DIGITAL_TWIN]
 
     async def GetProfiles(self):
-        res = await self.__GetWebsocketResponse(PROFILES)
-        _LOGGER.debug(res)
-        self.data[PROFILES] = self.ParseProfilesResponse(res)
+        self.data[PROFILES] = self.flatten_json(
+            self.ParseProfilesResponse(await self.__GetWebsocketResponse(PROFILES))
+        )
+        _LOGGER.debug(self.data[PROFILES])
         return self.data[PROFILES]
 
     def ParseDigitalTwinResponse(self, jsonMsg):
@@ -163,6 +165,24 @@ class MyFiskerAPI:
         # Use the jsonpath expression to find the value in the data
         _LOGGER.debug(digital_twin)  # Outputs: value1
         return digital_twin
+
+    def ParseProfilesResponse(self, jsonMsg):
+        # _LOGGER.debug('Start ParseProfilesResponse()')
+        # Parse the JSON response into a Python dictionary
+        # {"handler":"profiles","data":[{"vin":"VCF1UBE27PG010069","role":"OWNER","ble_key":"2604758F9ADC7DB725DA03DB99B67C8E","settings":[],"subscriptions":[]}]}
+
+        data = json.loads(jsonMsg)
+        # print (data)
+        if data["handler"] != PROFILES:
+            _LOGGER.debug("ParseProfilesResponse: Wrong answer from websocket")
+            _LOGGER.debug(data)
+            return "Wrong answer from websocket"
+
+        # Now you can access the items in the JSON response as you would with a Python dictionary
+        profiles = data["data"]
+
+        # Use the jsonpath expression to find the value in the data
+        return profiles
 
     def _ConvertToImperial(self, digital_twin):
         # km to miles
@@ -244,23 +264,6 @@ class MyFiskerAPI:
         messageData["data"] = data
         messageData["handler"] = DIGITAL_TWIN
         return messageData
-
-    def ParseProfilesResponse(self, jsonMsg):
-        # _LOGGER.debug('Start ParseProfilesResponse()')
-        # Parse the JSON response into a Python dictionary
-        data = json.loads(jsonMsg)
-        # print (data)
-        if data["handler"] != PROFILES:
-            _LOGGER.debug("ParseProfilesResponse: Wrong answer from websocket")
-            _LOGGER.debug(data)
-            return "Wrong answer from websocket"
-
-        # Now you can access the items in the JSON response as you would with a Python dictionary
-        item1 = data["data"][0]["vin"]
-
-        # Use the jsonpath expression to find the value in the data
-        result = item1
-        return result
 
     async def SendCommandRequest(self, command: str, command_data: str = ""):
         # _LOGGER.debug('Start SendCommandRequest()')

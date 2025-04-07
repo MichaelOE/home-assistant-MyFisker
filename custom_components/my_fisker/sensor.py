@@ -19,11 +19,13 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from . import FiskerSensorEntityDescription, MyFiskerCoordinator
 from .const import (
+    CAR_SETTINGS,
     CLIMATE_CONTROL_SEAT_HEAT,
     DEVICE_MANUCFACTURER,
     DEVICE_MODEL,
     DOMAIN,
     LIST_CLIMATE_CONTROL_SEAT_HEAT,
+    PROFILES,
     TRIM_EXTREME_ULTRA_BATT_CAPACITY,
     TRIM_SPORT_BATT_CAPACITY,
 )
@@ -137,10 +139,44 @@ class FiskerSensor(CoordinatorEntity, SensorEntity):
         self._attr_available = data_available
         self.async_write_ha_state()
 
+    @property
+    def should_poll(self):
+        return False
+
+    @property
+    def friendly_name(self):
+        return self.entity_description.name
+
+    @property
+    def state(self):
+        try:
+            retVal = self._attr_native_value
+            # if self.entity_description.format != None:
+            #     parsed_datetime = datetime.strptime(retVal, "%Y-%m-%dT%H:%M:%S.%fZ")
+            #     # Convert to the desired output format
+            #     retVal = parsed_datetime.strftime(self.entity_description.format)
+
+            state = retVal
+
+        except (KeyError, ValueError):
+            return None
+        return state
+
+    @property
+    def extra_state_attributes(self):
+        if self.entity_description.key == "vin":
+            attributes = {}
+            attributes["BLE key"] = self._coordinator.my_fisker_api.data[PROFILES][
+                "0_ble_key"
+            ]
+            return attributes
+        else:
+            None
+
     def handle_carsettings(self, key):
         value = "n/a"
 
-        carSetting = self._coordinator.my_fisker_api.GetCarSettings()
+        carSetting = self._coordinator.my_fisker_api.data[CAR_SETTINGS]
         value = self.entity_description.get_car_settings_value(carSetting)
 
         if "_updated" in key:
@@ -335,29 +371,6 @@ class FiskerSensor(CoordinatorEntity, SensorEntity):
                     )
         else:
             pass
-
-    @property
-    def should_poll(self):
-        return False
-
-    @property
-    def friendly_name(self):
-        return self.entity_description.name
-
-    @property
-    def state(self):
-        try:
-            retVal = self._attr_native_value
-            # if self.entity_description.format != None:
-            #     parsed_datetime = datetime.strptime(retVal, "%Y-%m-%dT%H:%M:%S.%fZ")
-            #     # Convert to the desired output format
-            #     retVal = parsed_datetime.strftime(self.entity_description.format)
-
-            state = retVal
-
-        except (KeyError, ValueError):
-            return None
-        return state
 
 
 # Get an item by its key
