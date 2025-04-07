@@ -1,5 +1,5 @@
 # Fisker Ocean component for Home Assistant
-[![BuyMeCoffee][buymecoffeebadge]][michaelo-buymecoffee]
+[![BuyMeCoffee][buymecoffeebadge]][michaeloe-buymecoffee] (fixed typo in url 🤦‍♂️)
 
 Custom component for getting information about your Fisker Ocean presented in Home Assistant.
 
@@ -111,4 +111,4 @@ series:
 
 
 [buymecoffeebadge]: https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png
-[michaelo-buymecoffee]: https://www.buymeacoffee.com/michaelo
+[michaeloe-buymecoffee]: https://buymeacoffee.com/michaeloe
