@@ -125,14 +125,9 @@ class MyFiskerAPI:
     async def tokenReturn(self):
         return self._accessToken
 
-    def GetCarSettings(self):
-        try:
-            data = json.loads(self.data[CAR_SETTINGS])
-            _LOGGER.debug(data)
-            return data
-        except NameError:
-            _LOGGER.warning("Self.data['car_settings'] is not available")
-            return None
+    async def GetCarSettings(self):
+        res = await self.__GetWebsocketResponse("car_settings")
+        return res
 
     async def GetDigitalTwin(self):
         self.data[DIGITAL_TWIN] = self.flatten_json(
@@ -143,9 +138,9 @@ class MyFiskerAPI:
         return self.data[DIGITAL_TWIN]
 
     async def GetProfiles(self):
-        self.data[PROFILES] = self.ParseProfilesResponse(
-            await self.__GetWebsocketResponse(PROFILES)
-        )
+        res = await self.__GetWebsocketResponse(PROFILES)
+        _LOGGER.debug(res)
+        self.data[PROFILES] = self.ParseProfilesResponse(res)
         return self.data[PROFILES]
 
     def ParseDigitalTwinResponse(self, jsonMsg):
