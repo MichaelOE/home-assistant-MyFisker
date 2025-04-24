@@ -13,11 +13,13 @@ Utilizing this, I then at regularly intervals poll the cloud service for the car
 ## Sensors
 All values exposed by the cloud api are available as sensors in Home Assistant.
 
+<img src="https://github.com/MichaelOE/home-assistant-MyFisker/assets/37800126/55d11a02-86ec-48ad-978b-2ea01c27f41f" width="400" title="Screenshot"/>
+<img src="https://github.com/MichaelOE/home-assistant-MyFisker/assets/37800126/a57eb9a7-2d01-4fdc-a29f-da1f757878e1" width="400" title="Screenshot"/>
+
 # Features
 The buttons available in the official app, is also available in this integration as 'buttons'.
 
-<img src="https://github.com/MichaelOE/home-assistant-MyFisker/assets/37800126/55d11a02-86ec-48ad-978b-2ea01c27f41f" width="400" title="Screenshot"/>
-<img src="https://github.com/MichaelOE/home-assistant-MyFisker/assets/37800126/a57eb9a7-2d01-4fdc-a29f-da1f757878e1" width="400" title="Screenshot"/>
+![billede](https://github.com/user-attachments/assets/8a077d33-bf1c-40ac-aafc-79da220d5c9a)
 
 # Installation and setup
 This integration can be installed through HACS.
