@@ -1,7 +1,7 @@
-# Fisker Ocean component for Home Assistant
+# Fisker Ocean custom integration for Home Assistant
 [![BuyMeCoffee][buymecoffeebadge]][michaeloe-buymecoffee]
 
-Custom component for getting information about your Fisker Ocean presented in Home Assistant.
+Custom integration for getting information about your Fisker Ocean presented in Home Assistant.
 
 ## Target
 The project is meant to get all available sensor values from Fisker Ocean cars.
