@@ -20,15 +20,30 @@ from homeassistant.const import (
     Platform,
 )
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
+from homeassistant.helpers.device_registry import DeviceInfo
+from homeassistant.helpers.update_coordinator import (
+    CoordinatorEntity,
+    DataUpdateCoordinator,
+)
 
 from .api import MyFiskerAPI
-from .const import DOMAIN, TRIM_EXTREME_ULTRA_BATT_CAPACITY, TRIM_SPORT_BATT_CAPACITY
+from .const import (
+    DEVICE_MANUCFACTURER,
+    DEVICE_MODEL,
+    DOMAIN,
+    TRIM_EXTREME_ULTRA_BATT_CAPACITY,
+    TRIM_SPORT_BATT_CAPACITY,
+)
 from .stats import TripStats
 
 _LOGGER = logging.getLogger(__name__)
 
-PLATFORMS: list[Platform] = [Platform.BINARY_SENSOR, Platform.BUTTON, Platform.SENSOR]
+PLATFORMS: list[Platform] = [
+    Platform.BINARY_SENSOR,
+    Platform.BUTTON,
+    Platform.DEVICE_TRACKER,
+    Platform.SENSOR,
+]
 
 
 async def async_setup(hass: HomeAssistant, config: dict):
@@ -157,14 +172,49 @@ class MyFiskerCoordinator(DataUpdateCoordinator):
                     await self.async_refresh()
 
                 return retData
-        except:
-            _LOGGER.error("MyCoordinator _async_update_data failed")
+        except Exception as ex:
+            _LOGGER.error(f"MyCoordinator _async_update_data failed: {ex}")
         # except ApiAuthError as err:
         #     # Raising ConfigEntryAuthFailed will cancel future updates
         #     # and start a config flow with SOURCE_REAUTH (async_step_reauth)
         #     raise ConfigEntryAuthFailed from err
         # except ApiError as err:
         #     raise UpdateFailed(f"Error communicating with API: {err}")
+
+
+class FiskerBaseEntity(CoordinatorEntity):
+    """Common base for MyFisker entities."""
+
+    # _attr_should_poll = False
+    _attr_attribution = "Data provided by FOCE (Fisker API)"
+
+    def __init__(
+        self,
+        coordinator: DataUpdateCoordinator,
+        index: int,
+    ) -> None:
+        """Initialize sensor."""
+        super().__init__(coordinator)
+        self.index = index
+        self._coordinator = coordinator
+
+        if self._coordinator.data is None:
+            _LOGGER.warning(
+                f"FiskerBaseEntity: self._coordinator.data is None - ({self.index})"
+            )
+            return
+
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, f"{self._coordinator.data['vin']}")},
+            manufacturer=DEVICE_MANUCFACTURER,
+            model=DEVICE_MODEL,
+            name=self._coordinator.alias,
+        )
+
+    @property
+    def device_info(self):
+        """Return device information about this entity."""
+        return self._attr_device_info
 
 
 @dataclass

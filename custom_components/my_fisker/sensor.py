@@ -17,7 +17,7 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from . import FiskerSensorEntityDescription, MyFiskerCoordinator
+from . import FiskerBaseEntity, FiskerSensorEntityDescription, MyFiskerCoordinator
 from .const import (
     CAR_SETTINGS,
     CLIMATE_CONTROL_SEAT_HEAT,
@@ -39,7 +39,7 @@ from .entities_sensor import (
 _LOGGER = logging.getLogger(__name__)
 
 
-class FiskerSensor(CoordinatorEntity, SensorEntity):
+class FiskerSensor(FiskerBaseEntity, CoordinatorEntity, SensorEntity):
     # An entity using CoordinatorEntity.
 
     def __init__(
@@ -49,8 +49,9 @@ class FiskerSensor(CoordinatorEntity, SensorEntity):
         sensor: FiskerSensorEntityDescription,
         client,
     ):
-        """Pass coordinator to CoordinatorEntity."""
-        super().__init__(coordinator, context=idx)
+        """Initialize My Fisker vehicle sensor."""
+        super().__init__(client._coordinator, idx)
+
         self.idx = idx
         # self._sensor = sensor
         self._data = client
@@ -70,21 +71,6 @@ class FiskerSensor(CoordinatorEntity, SensorEntity):
             self._attr_device_class = SensorDeviceClass.ENUM
 
     @property
-    def device_info(self):
-        """Return device information about this entity."""
-        _LOGGER.debug("My Fisker: device_info")
-
-        return {
-            "identifiers": {
-                # Unique identifiers within a specific domain
-                (DOMAIN, self._coordinator.data["vin"])
-            },
-            "manufacturer": DEVICE_MANUCFACTURER,
-            "model": DEVICE_MODEL,
-            "name": self._coordinator.alias,
-        }
-
-    @property
     def battery_capacity(self):
         # VCF1Z = One, VCF1E = Extreme, VCF1U = Ultra VCF1S = Sport
         trim_extreme_ultra = ["VCF1Z", "VCF1E", "VCF1U"]
@@ -99,6 +85,12 @@ class FiskerSensor(CoordinatorEntity, SensorEntity):
     @callback
     def _handle_coordinator_update(self) -> None:
         """Handle updated data from the coordinator."""
+
+        if self._coordinator.data is None:
+            _LOGGER.warning(
+                f"sensor _handle_coordinator_update: ({self.entity_description.key})"
+            )
+            return
 
         data_available = False
 
@@ -151,13 +143,7 @@ class FiskerSensor(CoordinatorEntity, SensorEntity):
     def state(self):
         try:
             retVal = self._attr_native_value
-            # if self.entity_description.format != None:
-            #     parsed_datetime = datetime.strptime(retVal, "%Y-%m-%dT%H:%M:%S.%fZ")
-            #     # Convert to the desired output format
-            #     retVal = parsed_datetime.strftime(self.entity_description.format)
-
             state = retVal
-
         except (KeyError, ValueError):
             return None
         return state

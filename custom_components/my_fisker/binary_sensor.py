@@ -7,7 +7,7 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from . import FiskerSensorEntityDescription
+from . import FiskerBaseEntity, FiskerSensorEntityDescription
 from .const import (
     CLIMATE_CONTROL_STEERING_WHEEL_HEAT,
     DEVICE_MANUCFACTURER,
@@ -38,44 +38,27 @@ async def async_setup_entry(
         if sens is None:
             _LOGGER.warning(idx[1])
         else:
-            entities.append(FiskerSensor(coordinator, idx, sens, my_Fisker_data))
+            entities.append(FiskerSensor(idx, sens, my_Fisker_data))
 
     # Add entities to Home Assistant
     async_add_entities(entities)
 
 
-class FiskerSensor(CoordinatorEntity):
+class FiskerSensor(FiskerBaseEntity, CoordinatorEntity):
     """Sensor used by all Fisker entities, inherits from CoordinatorEntity."""
 
-    def __init__(self, coordinator, idx, sensor: FiskerSensorEntityDescription, client):
-        """Pass coordinator to CoordinatorEntity."""
-        super().__init__(coordinator, context=idx)
+    def __init__(self, idx, sensor: FiskerSensorEntityDescription, client):
+        """Initialize My Fisker vehicle sensor."""
+        super().__init__(client._coordinator, idx)
+
         self.idx = idx
         self._data = client
-        self._coordinator = coordinator
+        self._coordinator = client._coordinator
         self.entity_description = sensor
         self._attr_unique_id = f"{self._coordinator.data['vin']}_{sensor.key}"
         self._attr_name = f"{self._coordinator.alias} {sensor.name}"
 
         _LOGGER.info(self._attr_unique_id)
-
-        # if "climate_control_steering_wheel_heat" in self.entity_description.key:
-        # self.options = LIST_CLIMATE_CONTROL_STEERING_WHEEL_HEAT
-        # self.device_class = SensorDeviceClass.ENUM
-
-    @property
-    def device_info(self):
-        """Return device information about this entity."""
-
-        return {
-            "identifiers": {
-                # Unique identifiers within a specific domain
-                (DOMAIN, self._coordinator.data["vin"])
-            },
-            "manufacturer": DEVICE_MANUCFACTURER,
-            "model": DEVICE_MODEL,
-            "name": self._coordinator.alias,
-        }
 
     @property
     def icon(self):
@@ -85,11 +68,22 @@ class FiskerSensor(CoordinatorEntity):
     def _handle_coordinator_update(self) -> None:
         """Handle updated data from the coordinator."""
 
+        if self._coordinator.data is None:
+            _LOGGER.warning(
+                f"binary_sensor _handle_coordinator_update: ({self.entity_description.key})"
+            )
+            return
+
         try:
             value = self._coordinator.data[self.idx[1]]
         except KeyError:
             _LOGGER.error(
                 f"binary_sensor: _handle_coordinator_update KeyError: {self.idx[1]}"
+            )
+            return
+        except Exception as ex:
+            _LOGGER.error(
+                f"binary_sensor: _handle_coordinator_update Exception: {self.idx[1]} ({ex})"
             )
             return
 
