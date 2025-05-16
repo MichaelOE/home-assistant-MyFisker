@@ -1,6 +1,8 @@
 # Fisker Ocean custom integration for Home Assistant
 [![BuyMeCoffee][buymecoffeebadge]][michaeloe-buymecoffee]
 
+##### 2025-05-16: Possible issues with cloud access due to AL cutting connection
+
 Custom integration for getting information about your Fisker Ocean presented in Home Assistant.
 
 ## Target
