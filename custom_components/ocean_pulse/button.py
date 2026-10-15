@@ -15,7 +15,7 @@ from . import (
     OceanPulseButtonEntityDescription,
     OceanPulseCoordinator,
 )
-from .api import OceanPulseAPI
+from .api import AuthenticationError, OceanPulseAPI
 from .const import DEVICE_MANUCFACTURER, DEVICE_MODEL, DOMAIN
 from .entities_button import BUTTON_ENTITIES
 
@@ -74,6 +74,11 @@ class OceanPulseButton(OceanPulseBaseEntity, ButtonEntity):
                 self.entity_description.command,
                 self.entity_description.command_data,
             )
+        except AuthenticationError as exc:
+            self._coordinator.config_entry.async_start_reauth(self.hass)
+            raise HomeAssistantError(
+                "Ocean Pulse authentication expired, please re-pair the device"
+            ) from exc
         except Exception as exc:
             raise HomeAssistantError(
                 f"Running command '{self.entity_description.key}' failed"

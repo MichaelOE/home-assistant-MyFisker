@@ -2,16 +2,17 @@
 
 DOMAIN = "ocean_pulse"
 
-DEVICE_MANUCFACTURER = "Fisker inc./ReTechImagine"
-DEVICE_MODEL = "(Fisker) Ocean Pulse"
+DEVICE_MANUCFACTURER = "Fisker"
+DEVICE_MODEL = "Ocean (via Ocean Pulse)"
 
 API_TIMEOUT = 10
-DEFAULT_SCAN_INTERVAL = 30
+DEFAULT_SCAN_INTERVAL = 60
 
 URL_BASE = "https://www.oceanlinkpulse.com"
 
 CONF_PAIRING_CODE = "pairing_code"
 CONF_BASE_URL = "base_url"
+CONF_VIN = "vin"
 
 HANDLER_COMMAND = "remote_command"
 COMMAND_DOORS_UNLOCK = "doors_unlock"

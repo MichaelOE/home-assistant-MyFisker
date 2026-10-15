@@ -2,13 +2,15 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
+import json
 import logging
 from typing import Any
-from unittest import result
 
 import voluptuous as vol
 
 from homeassistant import config_entries
+from homeassistant.config_entries import ConfigFlowResult
 from homeassistant.const import CONF_ALIAS
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResult
@@ -17,48 +19,58 @@ from homeassistant.exceptions import HomeAssistantError
 from .api import (
     OceanPulseAPI,
     RequestConnectionError,
+    RequestDataError,
     RequestError,
     RequestTimeoutError,
 )
-from .const import CONF_BASE_URL, CONF_PAIRING_CODE, DOMAIN, URL_BASE
+from .const import CONF_PAIRING_CODE, CONF_VIN, DOMAIN, URL_BASE
 
 _LOGGER = logging.getLogger(__name__)
 
 STEP_USER_DATA_SCHEMA = vol.Schema({vol.Required(CONF_PAIRING_CODE): str})
 STEP_ALIAS_DATA_SCHEMA = vol.Schema(
     {
+        vol.Required(CONF_VIN): str,
         vol.Required(CONF_ALIAS): str,
     }
 )
 
 
+def _parse_pairing_input(raw: str) -> tuple[str, str]:
+    """Return (pairing code, base URL) from a bare code or the QR JSON payload."""
+    raw = raw.strip()
+    if raw.startswith("{"):
+        try:
+            qr = json.loads(raw)
+        except ValueError as ex:
+            raise InvalidPairingCode from ex
+        if not isinstance(qr, dict) or not qr.get("pairingCode"):
+            raise InvalidPairingCode
+        return str(qr["pairingCode"]), qr.get("apiBaseUrl") or URL_BASE
+    return raw, URL_BASE
+
+
 async def validate_pairing(hass: HomeAssistant, data: dict[str, Any]) -> dict[str, Any]:
-    """Validate the pairing code and return device link data."""
+    """Redeem the pairing code and return config entry data (without VIN)."""
+    code, base_url = _parse_pairing_input(data[CONF_PAIRING_CODE])
     api = OceanPulseAPI()
     try:
-        result = await api.redeem_pairing_code(data[CONF_PAIRING_CODE])
+        payload = await api.redeem_pairing_code(code, base_url)
     except RequestError as ex:
-        ### FOR TEST only - remove when actual API is available
-        return {
-            "vin": "OC1234567890ABCDE",
-            "device_id": "d7f3a1b2-4e5c-4d6e-8f9a-0b1c2d3e4f5a",
-            "car_device_id": "c9e2b3a4-5f6d-4e7f-9a0b-1c2d3e4f5a6b",
-            "api_base_url": "https://www.oceanlinkpulse.com",
-            "profile_id": 42,
-            "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJkN2YzYTFiMiIsImV4cCI6OTk5OTk5OTk5OX0.placeholder",
-            "refresh_token": "rt_9f8e7d6c5b4a3f2e1d0c9b8a7f6e5d4c",
-        }
-
         if ex.error_code in (404, 410):
             raise InvalidPairingCode from ex
         raise CannotConnect from ex
     except (RequestConnectionError, RequestTimeoutError) as ex:
-        raise CannotConnect from ex2
+        raise CannotConnect from ex
 
-    if not isinstance(result, dict) or "vin" not in result:
+    if not isinstance(payload, dict):
         raise InvalidPairingCode
 
-    return result
+    try:
+        return OceanPulseAPI.parse_link_payload(payload, base_url)
+    except RequestDataError as ex:
+        _LOGGER.error("Unexpected pairing response: %s", ex)
+        raise InvalidPairingCode from ex
 
 
 class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
@@ -77,8 +89,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         errors: dict[str, str] = {}
         if user_input is not None:
             try:
-                device_data = await validate_pairing(self.hass, user_input)
-                self._device_data = device_data
+                self._device_data = await validate_pairing(self.hass, user_input)
             except CannotConnect:
                 errors["base"] = "cannot_connect"
             except InvalidPairingCode:
@@ -87,8 +98,6 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 _LOGGER.exception("Unexpected exception")
                 errors["base"] = "unknown"
             else:
-                await self.async_set_unique_id(self._device_data["vin"])
-                self._abort_if_unique_id_configured()
                 return await self.async_step_alias()
 
         return self.async_show_form(
@@ -98,22 +107,54 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     async def async_step_alias(
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
-        """Handle the alias step."""
+        """Ask for the VIN (not returned by the pairing API) and an alias."""
+        if user_input is not None:
+            vin = user_input[CONF_VIN].strip().upper()
+            await self.async_set_unique_id(vin)
+            self._abort_if_unique_id_configured()
+            return self.async_create_entry(
+                title=f"{user_input[CONF_ALIAS]} ({vin})",
+                data={
+                    **self._device_data,
+                    "vin": vin,
+                    CONF_ALIAS: user_input[CONF_ALIAS],
+                },
+            )
+
+        return self.async_show_form(step_id="alias", data_schema=STEP_ALIAS_DATA_SCHEMA)
+
+    async def async_step_reauth(
+        self, entry_data: Mapping[str, Any]
+    ) -> ConfigFlowResult:
+        """Start reauth when the stored tokens are rejected."""
+        return await self.async_step_reauth_confirm()
+
+    async def async_step_reauth_confirm(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Re-pair with a new code; VIN and alias are kept from the entry."""
         errors: dict[str, str] = {}
+        reauth_entry = self._get_reauth_entry()
         if user_input is not None:
             try:
-                self._device_data[CONF_ALIAS] = user_input[CONF_ALIAS]
+                device_data = await validate_pairing(self.hass, user_input)
+            except CannotConnect:
+                errors["base"] = "cannot_connect"
+            except InvalidPairingCode:
+                errors["base"] = "invalid_pairing_code"
             except Exception:
                 _LOGGER.exception("Unexpected exception")
                 errors["base"] = "unknown"
             else:
-                return self.async_create_entry(
-                    title=f"{user_input[CONF_ALIAS]} ({self._device_data['vin']})",
-                    data=self._device_data,
+                return self.async_update_reload_and_abort(
+                    reauth_entry, data_updates=device_data
                 )
 
         return self.async_show_form(
-            step_id="alias", data_schema=STEP_ALIAS_DATA_SCHEMA, errors=errors
+            step_id="reauth_confirm",
+            data_schema=STEP_USER_DATA_SCHEMA,
+            description_placeholders={"name": reauth_entry.title},
+            errors=errors,
         )
 
 

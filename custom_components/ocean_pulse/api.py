@@ -6,11 +6,10 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 import json
 import logging
-from typing import Optional
+from typing import Any, Callable, Optional
 
 import aiohttp
 
-from homeassistant.components.dlink import data
 from homeassistant.util import dt as dt_util
 
 from .const import API_TIMEOUT, URL_BASE
@@ -32,8 +31,13 @@ class PulseDeviceLink:
 class OceanPulseAPI:
     """Handle connection towards OceanPulse API servers."""
 
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        on_tokens_refreshed: Callable[[PulseDeviceLink], None] | None = None,
+    ) -> None:
+        self._on_tokens_refreshed = on_tokens_refreshed
         self._links: dict[str, PulseDeviceLink] = {}
+        self._refresh_locks: dict[str, asyncio.Lock] = {}
         self.vehicle_statuses: dict[str, dict] = {}
         self.is_loading = False
 
@@ -50,9 +54,9 @@ class OceanPulseAPI:
             raise Exception(f"Device {vin} is not linked")
         return link
 
-    async def redeem_pairing_code(self, code: str) -> dict:
-        """Redeem a pairing code and return the device link data."""
-        url = f"{URL_BASE}/api/pairing/{code}"
+    async def redeem_pairing_code(self, code: str, base_url: str = URL_BASE) -> dict:
+        """Redeem a pairing code and return the raw device link payload."""
+        url = f"{base_url}/api/pairing/{code}"
         _LOGGER.debug("PulseCloud: redeeming pairing code %s", code)
 
         try:
@@ -76,6 +80,33 @@ class OceanPulseAPI:
         except asyncio.TimeoutError as ex:
             raise RequestTimeoutError("Request timed out") from ex
 
+    @staticmethod
+    def parse_link_payload(data: dict[str, Any], fallback_base_url: str) -> dict:
+        """Convert a redeemed (camelCase) pairing payload to config entry data.
+
+        The payload does not contain the VIN; the caller must add it.
+        """
+        device_id = data.get("deviceId")
+        access_token = data.get("accessToken")
+        refresh_token = data.get("refreshToken")
+        if not device_id:
+            raise RequestDataError("Pairing payload missing deviceId")
+        if not access_token:
+            raise RequestDataError("Pairing payload missing accessToken")
+        if not refresh_token:
+            raise RequestDataError("Pairing payload missing refreshToken")
+
+        profile_id = data.get("profileId")
+        return {
+            "device_id": device_id,
+            # Older Pulse firmware omits carDeviceId; the app falls back to deviceId
+            "car_device_id": data.get("carDeviceId") or device_id,
+            "api_base_url": data.get("apiBaseUrl") or fallback_base_url,
+            "profile_id": profile_id if isinstance(profile_id, int) else 0,
+            "access_token": access_token,
+            "refresh_token": refresh_token,
+        }
+
     async def get_status(self, vin: str) -> dict:
         """Fetch vehicle status for a specific VIN."""
         link = self._require_link(vin)
@@ -83,71 +114,20 @@ class OceanPulseAPI:
         try:
             headers = await self._auth_headers(link)
             url = f"{link.api_base_url}/api/devices/{link.car_device_id}/status"
-            async with aiohttp.ClientSession(
-                timeout=aiohttp.ClientTimeout(total=API_TIMEOUT)
-            ) as session:
-                async with session.get(url, headers=headers) as resp:
-                    if resp.status == 200:
-                        data = await resp.json()
-                        self.vehicle_statuses[vin] = data
-                        return data
-                    if resp.status == 401:
-                        data = {
-                            "device_id": "a8cc29a4d7967f217ca2a8cfe489588c",
-                            "device_name": "Bluey",
-                            "status": {
-                                "AC_AUTO": "off",
-                                "AC_CHARGE_LAMP": 0,
-                                "AC_CHARGE_LAMP_COLOR": "off",
-                                "AC_STATE": "off",
-                                "AMBIENT_TEMP": 29.5,
-                                "BATTERY_12V": 12.919,
-                                "CHARGING": 0,
-                                "CLIMATE_ON": False,
-                                "CLIMATE_STATE": 0,
-                                "DC_CHARGE_LAMP": 0,
-                                "DC_CHARGE_LAMP_COLOR": "off",
-                                "DOOR_FL_OPEN": False,
-                                "DOOR_FR_OPEN": False,
-                                "DOOR_RL_OPEN": False,
-                                "DOOR_RR_OPEN": False,
-                                "DRIVER_TEMP": 20.5,
-                                "FAN_SPEED": 0,
-                                "FRONT_DEFROST": False,
-                                "HV_CAP": 69.47,
-                                "LOCATION": {
-                                    "lat": 55.71163299999999,
-                                    "lon": 9.86675200000001,
-                                },
-                                "LOCK_STATUS": "locked",
-                                "MILEAGE": 31281.4,
-                                "OUTDOOR_TEMP": 29.5,
-                                "PASS_TEMP": 20.5,
-                                "POWER_MODE": "off",
-                                "RANGE": 306,
-                                "REAR_DEFROST": False,
-                                "RECIRCULATION": "outer",
-                                "SCU_CONNECTED": True,
-                                "SEAT_HEAT_DRIVER": 4,
-                                "SEAT_HEAT_PASSENGER": 4,
-                                "SEAT_HEAT_REAR_LEFT": 4,
-                                "SEAT_HEAT_REAR_RIGHT": 4,
-                                "SOC": 69,
-                                "SOH": 98,
-                                "STEERING_WHEEL_HEAT": False,
-                                "SYNC_ON": True,
-                                "TRUNK_OPEN": False,
-                                "installed_build": 2229,
-                                "installed_version": "1.0.0",
-                                "last_update": "2026-05-29T17:10:03.640265Z",
-                            },
-                        }
-                        return data
-
-                        self.unlink_device(vin)
-                        raise Exception("Token revoked – device unlinked")
-                    body = await resp.text()
-                    raise Exception(f"Status failed: {resp.status} {body}")
+            async with (
+                aiohttp.ClientSession(
+                    timeout=aiohttp.ClientTimeout(total=API_TIMEOUT)
+                ) as session,
+                session.get(url, headers=headers) as resp,
+            ):
+                if resp.status == 200:
+                    data = await resp.json()
+                    self.vehicle_statuses[vin] = data
+                    return data
+                if resp.status == 401:
+                    raise AuthenticationError("Access token rejected")
+                body = await resp.text()
+                raise Exception(f"Status failed: {resp.status} {body}")
         finally:
             self.is_loading = False
 
@@ -166,30 +146,41 @@ class OceanPulseAPI:
             body: dict = {"cmd": cmd}
             if extra_data is not None:
                 body["extra_data"] = extra_data
-            async with aiohttp.ClientSession() as session:
-                async with session.post(
+            async with (
+                aiohttp.ClientSession() as session,
+                session.post(
                     url,
                     headers=headers,
                     json=body,
                     timeout=aiohttp.ClientTimeout(total=15),
-                ) as resp:
-                    if resp.status in (200, 201):
-                        return await resp.json()
-                    if resp.status == 401:
-                        _LOGGER.debug(
-                            "PulseCloud: [send_command] device unlinked for VIN %s", vin
-                        )
-                        raise Exception(
-                            "Token revoked - device unlinked [send_command]"
-                        )
-                    text = await resp.text()
-                    raise Exception(f"Command failed: {resp.status} {text}")
+                ) as resp,
+            ):
+                if resp.status in (200, 201):
+                    return await resp.json()
+                if resp.status == 401:
+                    _LOGGER.debug(
+                        "PulseCloud: [send_command] device unlinked for VIN %s", vin
+                    )
+                    raise AuthenticationError("Access token rejected")
+                text = await resp.text()
+                raise Exception(f"Command failed: {resp.status} {text}")
         finally:
             self.is_loading = False
 
     async def _auth_headers(self, link: PulseDeviceLink) -> dict:
         if link.access_token is None or self._is_token_expired(link.access_token):
-            await self._refresh_tokens(link)
+            # Refresh tokens are single-use, so concurrent callers must not each
+            # send the same one; later callers reuse the first caller's result
+            lock = self._refresh_locks.setdefault(link.vin, asyncio.Lock())
+            async with lock:
+                if link.access_token is None or self._is_token_expired(
+                    link.access_token
+                ):
+                    await self._refresh_tokens(link)
+        # Refresh swallows network/server errors to retry later, so re-check here;
+        # this is transient and must not trigger a reauth
+        if link.access_token is None or self._is_token_expired(link.access_token):
+            raise RequestConnectionError("Token refresh failed, will retry")
         return {
             "Authorization": f"Bearer {link.access_token}",
             "Content-Type": "application/json",
@@ -197,26 +188,31 @@ class OceanPulseAPI:
 
     async def _refresh_tokens(self, link: PulseDeviceLink) -> None:
         if link.refresh_token is None:
-            self.unlink_device(link.vin)
-            raise Exception("No refresh token")
+            raise AuthenticationError("No refresh token")
 
         url = f"{link.api_base_url}/api/devices/{link.car_device_id}/tokens/refresh"
 
         try:
-            async with aiohttp.ClientSession() as session:
-                async with session.post(
-                    url,
-                    headers={"Content-Type": "application/json"},
-                    json={"refresh_token": link.refresh_token},
-                    timeout=aiohttp.ClientTimeout(total=15),
-                ) as resp:
+            async with asyncio.timeout(15):
+                async with (
+                    aiohttp.ClientSession() as session,
+                    session.post(
+                        url,
+                        headers={"Content-Type": "application/json"},
+                        json={"refresh_token": link.refresh_token},
+                    ) as resp,
+                ):
                     await self._handle_refresh_response(link, resp)
-        except asyncio.TimeoutError:
+        except AuthenticationError:
+            raise
+        except TimeoutError:
             _LOGGER.debug(
-                "PulseCloud: refresh timed out – keeping tokens, will retry later"
+                "PulseCloud: refresh timed out - keeping tokens, will retry later"
             )
         except aiohttp.ClientError as e:
-            _LOGGER.debug("PulseCloud: network error during refresh – %s", e)
+            _LOGGER.debug("PulseCloud: network error during refresh - %s", e)
+        except Exception as e:
+            _LOGGER.debug("PulseCloud: unexpected error during refresh - %s", e)
 
     async def _handle_refresh_response(
         self, link: PulseDeviceLink, resp: aiohttp.ClientResponse
@@ -226,22 +222,21 @@ class OceanPulseAPI:
             link.access_token = data["access_token"]
             link.refresh_token = data["refresh_token"]
             _LOGGER.debug("PulseCloud: tokens refreshed for VIN %s", link.vin)
+            if self._on_tokens_refreshed is not None:
+                self._on_tokens_refreshed(link)
         elif resp.status in (401, 403):
-            _LOGGER.debug("PulseCloud: refresh rejected %s – unlinking", resp.status)
-            self.unlink_device(link.vin)
-            raise Exception("Token refresh rejected – device unlinked")
+            _LOGGER.debug("PulseCloud: refresh rejected %s", resp.status)
+            raise AuthenticationError(f"Token refresh rejected ({resp.status})")
         elif resp.status >= 500:
             _LOGGER.debug(
-                "PulseCloud: server error %s – keeping tokens, will retry later",
+                "PulseCloud: server error %s - keeping tokens, will retry later",
                 resp.status,
             )
         else:
             body = await resp.text()
             _LOGGER.debug(
-                "PulseCloud: unexpected status %s %s – unlinking", resp.status, body
+                "PulseCloud: unexpected refresh status %s %s", resp.status, body
             )
-            self.unlink_device(link.vin)
-            raise Exception("Token refresh failed – device unlinked")
 
     def _is_token_expired(self, token: str) -> bool:
         try:

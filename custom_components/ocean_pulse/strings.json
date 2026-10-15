@@ -9,23 +9,32 @@
           "base_url": "Server URL"
         },
         "data_description": {
-          "pairing_code": "The pairing code shown on your Ocean Pulse device or generated QR code."
+          "pairing_code": "The pairing code from the Pulse device, or the full QR code content."
         }
       },
       "alias": {
         "data": {
-          "alias": "[%key:common::config_flow::data::alias%]"
+          "alias": "[%key:common::config_flow::data::alias%]",
+          "vin": "Vehicle VIN"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Re-pair Ocean Pulse",
+        "description": "The connection to {name} has expired or was revoked. Generate a new pairing code on the Pulse device and enter it here.",
+        "data": {
+          "pairing_code": "Pairing Code"
         }
       }
     },
     "error": {
       "cannot_connect": "[%key:common::config_flow::error::cannot_connect%]",
       "invalid_auth": "[%key:common::config_flow::error::invalid_auth%]",
-      "invalid_pairing_code": "[%key:common::config_flow::error::invalid or expired pairing code%]",
+      "invalid_pairing_code": "Invalid or expired pairing code",
       "unknown": "[%key:common::config_flow::error::unknown%]"
     },
     "abort": {
-      "already_configured": "[%key:common::config_flow::abort::already_configured_device%]"
+      "already_configured": "[%key:common::config_flow::abort::already_configured_device%]",
+      "reauth_successful": "Re-authentication was successful"
     }
   }
 }

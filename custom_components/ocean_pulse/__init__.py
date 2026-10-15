@@ -13,7 +13,8 @@ from homeassistant.components.button import ButtonEntityDescription
 from homeassistant.components.sensor import SensorEntityDescription
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_ALIAS, Platform
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
+from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.update_coordinator import (
     CoordinatorEntity,
@@ -21,7 +22,7 @@ from homeassistant.helpers.update_coordinator import (
     UpdateFailed,
 )
 
-from .api import OceanPulseAPI, PulseDeviceLink
+from .api import AuthenticationError, OceanPulseAPI, PulseDeviceLink
 from .const import DEVICE_MANUCFACTURER, DEVICE_MODEL, DOMAIN
 from .stats import TripStats
 
@@ -40,7 +41,20 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.data.setdefault(DOMAIN, {})
 
     data = entry.data
-    api = OceanPulseAPI()
+
+    @callback
+    def _async_persist_tokens(link: PulseDeviceLink) -> None:
+        # The server rotates refresh tokens, so the new pair must survive restarts
+        hass.config_entries.async_update_entry(
+            entry,
+            data={
+                **entry.data,
+                "access_token": link.access_token,
+                "refresh_token": link.refresh_token,
+            },
+        )
+
+    api = OceanPulseAPI(on_tokens_refreshed=_async_persist_tokens)
     link = PulseDeviceLink(
         vin=data["vin"],
         device_id=data["device_id"],
@@ -52,7 +66,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     )
     api.link_device(link)
 
-    coordinator = OceanPulseCoordinator(hass, api, data["vin"], data[CONF_ALIAS])
+    coordinator = OceanPulseCoordinator(hass, entry, api, data["vin"], data[CONF_ALIAS])
 
     utc_time = datetime.now(timezone.utc)
     local_time = utc_time.astimezone(ZoneInfo(hass.config.time_zone))
@@ -79,12 +93,18 @@ class OceanPulseCoordinator(DataUpdateCoordinator):
     """Ocean Pulse coordinator."""
 
     def __init__(
-        self, hass: HomeAssistant, api: OceanPulseAPI, vin: str, alias: str
+        self,
+        hass: HomeAssistant,
+        entry: ConfigEntry,
+        api: OceanPulseAPI,
+        vin: str,
+        alias: str,
     ) -> None:
         """Initialize coordinator."""
         super().__init__(
             hass,
             _LOGGER,
+            config_entry=entry,
             name=f"OceanPulse coordinator for '{alias}'",
             update_interval=timedelta(seconds=30),
         )
@@ -115,6 +135,8 @@ class OceanPulseCoordinator(DataUpdateCoordinator):
                 else:
                     self.update_interval = timedelta(seconds=20)
 
+                self.update_interval = timedelta(seconds=300)
+
                 if self.update_interval != self._previous_update_interval:
                     _LOGGER.info(
                         "OceanPulse refresh rate changed from %s to %s",
@@ -123,6 +145,8 @@ class OceanPulseCoordinator(DataUpdateCoordinator):
                     )
 
                 return data
+        except AuthenticationError as ex:
+            raise ConfigEntryAuthFailed(str(ex)) from ex
         except Exception as ex:
             raise UpdateFailed(f"Error communicating with API: {ex}") from ex
 

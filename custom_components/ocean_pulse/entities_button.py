@@ -28,7 +28,7 @@ BUTTON_ENTITIES: list[EntityDescription] = [
     ),
     OceanPulseButtonEntityDescription(
         key="cabin_temperature_15",
-        name="Cabin climeate (15 min)",
+        name="Cabin climate (15 min)",
         translation_key="cabin_temperature_15",
         icon="mdi:air-conditioner",
         command="PKC_CLIMATE_ON",

@@ -1,7 +1,7 @@
 import logging
 
 from homeassistant.components.device_tracker import SourceType
-from homeassistant.components.device_tracker.entity import TrackerEntity
+from homeassistant.components.device_tracker.config_entry import TrackerEntity
 from homeassistant.components.sensor import SensorEntityDescription
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
@@ -73,8 +73,7 @@ class DeviceTrackerSensor(OceanPulseBaseEntity, TrackerEntity):
     def longitude(self) -> float:
         """Return longitude value of the device."""
         try:
-            lon = self._coordinator.data["lon"]
-            return lon
+            return self._coordinator.data["lon"]
         except KeyError:
             return None
 
@@ -82,8 +81,7 @@ class DeviceTrackerSensor(OceanPulseBaseEntity, TrackerEntity):
     def battery_level(self) -> float:
         """Return battery_level of the device."""
         try:
-            soc = self._coordinator.data["SOC"]
-            return soc
+            return self._coordinator.data["SOC"]
         except KeyError:
             return None
 
