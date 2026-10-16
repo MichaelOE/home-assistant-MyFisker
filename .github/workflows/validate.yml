@@ -17,3 +17,12 @@ jobs:
         uses: "hacs/action@main"
         with:
           category: "integration"
+
+  validate-hassfest:
+    runs-on: "ubuntu-latest"
+    permissions:
+      contents: read
+    steps:
+      - uses: "actions/checkout@v4"
+      - name: Hassfest validation
+        uses: "home-assistant/actions/hassfest@master"
