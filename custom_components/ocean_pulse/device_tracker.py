@@ -1,7 +1,6 @@
 import logging
 
-from homeassistant.components.device_tracker import SourceType
-from homeassistant.components.device_tracker.config_entry import TrackerEntity
+from homeassistant.components.device_tracker import SourceType, TrackerEntity
 from homeassistant.components.sensor import SensorEntityDescription
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
@@ -28,7 +27,7 @@ async def async_setup_entry(
     entities: list[DeviceTrackerSensor] = []
 
     # Fetch initial data so we have data when entities subscribe
-    await coordinator.async_config_entry_first_refresh()
+    # await coordinator.async_config_entry_first_refresh()
 
     sens = DEVICE_TRACKER_SENSORS[0]
     entities.append(DeviceTrackerSensor(sens, coordinator))

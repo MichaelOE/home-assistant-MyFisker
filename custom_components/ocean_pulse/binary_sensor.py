@@ -2,6 +2,7 @@
 
 import logging
 
+from homeassistant.components.binary_sensor import BinarySensorEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
@@ -46,7 +47,9 @@ async def async_setup_entry(
     async_add_entities(entities)
 
 
-class OceanPulseBinarySensor(OceanPulseBaseEntity, CoordinatorEntity):
+class OceanPulseBinarySensor(
+    OceanPulseBaseEntity, CoordinatorEntity, BinarySensorEntity
+):
     """Sensor used by all Fisker entities, inherits from CoordinatorEntity."""
 
     def __init__(
@@ -95,31 +98,26 @@ class OceanPulseBinarySensor(OceanPulseBaseEntity, CoordinatorEntity):
 
         value = self._coordinator.data[self.idx[1]]
 
-        if "DOOR_" in self.entity_description.key:
-            self._attr_state = DOOR_LOCK[value][0]
-        # elif "gear_in_park" in self.entity_description.key:
-        #     self._attr_state = GEAR_IN_PARK[value][0]
-        elif "STEERING_WHEEL_HEAT" in self.entity_description.key:
-            self._attr_state = CLIMATE_CONTROL_STEERING_WHEEL_HEAT[value][0]
-        else:
-            self._attr_state = value
+        # if "DOOR_" in self.entity_description.key:
+        #     self._attr_state = DOOR_LOCK[value][0]
+        # # elif "gear_in_park" in self.entity_description.key:
+        # #     self._attr_state = GEAR_IN_PARK[value][0]
+        # elif "STEERING_WHEEL_HEAT" in self.entity_description.key:
+        #     self._attr_state = CLIMATE_CONTROL_STEERING_WHEEL_HEAT[value][0]
+        # else:
+        #     self._attr_state = value
 
+        # self._attr_available = True
+        # # self._attr_is_on = True
+
+        self._attr_is_on = bool(value)
         self._attr_available = True
-        # self._attr_is_on = True
 
         self.async_write_ha_state()
 
     @property
     def should_poll(self):
         return False
-
-    @property
-    def state(self):
-        try:
-            state = self._attr_state
-        except KeyError, ValueError:
-            return None
-        return state
 
 
 # Get an item by its key

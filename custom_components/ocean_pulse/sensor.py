@@ -84,31 +84,31 @@ class OceanPulseSensor(OceanPulseBaseEntity, CoordinatorEntity, SensorEntity):
 
         data_available = False
 
-        self.update_chargestats()
-        self.update_tripstats()
+        # self.update_chargestats()
+        # self.update_tripstats()
 
-        if "tripstat" in self.entity_description.key:
-            self._attr_native_value = self.handle_tripstats(self.entity_description.key)
+        # if "tripstat" in self.entity_description.key:
+        #     self._attr_native_value = self.handle_tripstats(self.entity_description.key)
 
-        elif "chargestat" in self.entity_description.key:
-            self._attr_native_value = self.handle_chargestats(
-                self.entity_description.key
+        # elif "chargestat" in self.entity_description.key:
+        #     self._attr_native_value = self.handle_chargestats(
+        #         self.entity_description.key
+        #     )
+
+        # else:
+        value = self._coordinator.data.get(self.idx[1])
+        data_available = value is not None
+
+        if "SEAT_HEAT" in self.entity_description.key:
+            self._attr_native_value = CLIMATE_CONTROL_SEAT_HEAT[value][0]
+        elif "last_update" in self.entity_description.key:
+            utc_time = datetime.fromisoformat(value.replace("Z", "+00:00"))
+            local_time = utc_time + self._coordinator.time_difference_from_utc
+            self._attr_native_value = local_time.strftime(
+                self.entity_description.format
             )
-
         else:
-            value = self._coordinator.data.get(self.idx[1])
-            data_available = value is not None
-
-            if "SEAT_HEAT" in self.entity_description.key:
-                self._attr_native_value = CLIMATE_CONTROL_SEAT_HEAT[value][0]
-            elif "last_update" in self.entity_description.key:
-                utc_time = datetime.fromisoformat(value.replace("Z", "+00:00"))
-                local_time = utc_time + self._coordinator.time_difference_from_utc
-                self._attr_native_value = local_time.strftime(
-                    self.entity_description.format
-                )
-            else:
-                self._attr_native_value = value
+            self._attr_native_value = value
 
         self._attr_available = data_available
         self.async_write_ha_state()
@@ -120,13 +120,6 @@ class OceanPulseSensor(OceanPulseBaseEntity, CoordinatorEntity, SensorEntity):
     @property
     def friendly_name(self):
         return self.entity_description.name
-
-    @property
-    def state(self):
-        try:
-            return self._attr_native_value
-        except KeyError, ValueError:
-            return None
 
     @property
     def extra_state_attributes(self):
@@ -145,120 +138,120 @@ class OceanPulseSensor(OceanPulseBaseEntity, CoordinatorEntity, SensorEntity):
 
         return value["value"]
 
-    def handle_tripstats(self, key):
-        batt_factor = self.battery_capacity / 100
-        value = None
+    # def handle_tripstats(self, key):
+    #     batt_factor = self.battery_capacity / 100
+    #     value = None
 
-        if "battery" in key:
-            value = round(self._coordinator.tripstats.batt * batt_factor, 2)
-        elif "distance" in key:
-            value = self._coordinator.tripstats.dist
-        elif "duration" in key:
-            value = self._coordinator.tripstats.time
-        elif "_efficiency_dist" in key:
-            value = round(self._coordinator.tripstats.efficiency_dist * batt_factor, 2)
-        elif "_efficiency" in key:
-            value = round(self._coordinator.tripstats.efficiency * batt_factor, 2)
-        elif "_prevefficiency" in key:
-            value = round(
-                self._coordinator.tripstats.previous_efficiency * batt_factor, 2
-            )
-        elif "speed" in key:
-            value = self._coordinator.tripstats.average_speed
+    #     if "battery" in key:
+    #         value = round(self._coordinator.tripstats.batt * batt_factor, 2)
+    #     elif "distance" in key:
+    #         value = self._coordinator.tripstats.dist
+    #     elif "duration" in key:
+    #         value = self._coordinator.tripstats.time
+    #     elif "_efficiency_dist" in key:
+    #         value = round(self._coordinator.tripstats.efficiency_dist * batt_factor, 2)
+    #     elif "_efficiency" in key:
+    #         value = round(self._coordinator.tripstats.efficiency * batt_factor, 2)
+    #     elif "_prevefficiency" in key:
+    #         value = round(
+    #             self._coordinator.tripstats.previous_efficiency * batt_factor, 2
+    #         )
+    #     elif "speed" in key:
+    #         value = self._coordinator.tripstats.average_speed
 
-        return value
+    #     return value
 
-    def handle_chargestats(self, key):
-        batt_factor = self.battery_capacity / 100
-        value = None
+    # def handle_chargestats(self, key):
+    #     batt_factor = self.battery_capacity / 100
+    #     value = None
 
-        if "battery" in key:
-            value = round(self._coordinator.chargestats.batt * batt_factor, 2)
-        if "distance" in key:
-            value = self._coordinator.chargestats.dist
-        if "duration" in key:
-            value = self._coordinator.chargestats.time
-        if "_efficiency" in key:
-            value = round(self._coordinator.chargestats.efficiency * batt_factor, 2)
-        if "_prevefficiency" in key:
-            value = round(
-                self._coordinator.chargestats.previous_efficiency * batt_factor, 2
-            )
-        if "speed" in key:
-            value = self._coordinator.chargestats.average_speed
+    #     if "battery" in key:
+    #         value = round(self._coordinator.chargestats.batt * batt_factor, 2)
+    #     if "distance" in key:
+    #         value = self._coordinator.chargestats.dist
+    #     if "duration" in key:
+    #         value = self._coordinator.chargestats.time
+    #     if "_efficiency" in key:
+    #         value = round(self._coordinator.chargestats.efficiency * batt_factor, 2)
+    #     if "_prevefficiency" in key:
+    #         value = round(
+    #             self._coordinator.chargestats.previous_efficiency * batt_factor, 2
+    #         )
+    #     if "speed" in key:
+    #         value = self._coordinator.chargestats.average_speed
 
-        return value
+    #     return value
 
-    def update_tripstats(self):
-        is_parked = self._coordinator.data.get("POWER_MODE") == "off"
-        was_parked = self._coordinator.tripstats.vehicleParked
+    # def update_tripstats(self):
+    #     is_parked = self._coordinator.data.get("POWER_MODE") == "off"
+    #     was_parked = self._coordinator.tripstats.vehicleParked
 
-        carStartedDriving = was_parked is True and not is_parked
-        carIsDriving = was_parked is False and not is_parked
-        carEndedDriving = was_parked is False and is_parked
+    #     carStartedDriving = was_parked is True and not is_parked
+    #     carIsDriving = was_parked is False and not is_parked
+    #     carEndedDriving = was_parked is False and is_parked
 
-        self._coordinator.tripstats.vehicleParked = is_parked
+    #     self._coordinator.tripstats.vehicleParked = is_parked
 
-        if carStartedDriving:
-            self._coordinator.tripstats.Clear()
-            if self.entity_description.key == "SOC":
-                self._coordinator.tripstats.add_battery(
-                    self._coordinator.data[self.idx[1]]
-                )
-            if self.entity_description.key == "MILEAGE":
-                self._coordinator.tripstats.add_distance(
-                    self._coordinator.data[self.idx[1]]
-                )
+    #     if carStartedDriving:
+    #         self._coordinator.tripstats.Clear()
+    #         if self.entity_description.key == "SOC":
+    #             self._coordinator.tripstats.add_battery(
+    #                 self._coordinator.data[self.idx[1]]
+    #             )
+    #         if self.entity_description.key == "MILEAGE":
+    #             self._coordinator.tripstats.add_distance(
+    #                 self._coordinator.data[self.idx[1]]
+    #             )
 
-        if carIsDriving:
-            if self.entity_description.key == "SOC":
-                prevBatt = self._attr_native_value
-                if prevBatt != self._coordinator.data[self.idx[1]]:
-                    self._coordinator.tripstats.add_battery(
-                        self._coordinator.data[self.idx[1]]
-                    )
-            if self.entity_description.key == "MILEAGE":
-                prevDist = self._attr_native_value
-                if prevDist != self._coordinator.data[self.idx[1]]:
-                    self._coordinator.tripstats.add_distance(
-                        self._coordinator.data[self.idx[1]]
-                    )
+    #     if carIsDriving:
+    #         if self.entity_description.key == "SOC":
+    #             prevBatt = self._attr_native_value
+    #             if prevBatt != self._coordinator.data[self.idx[1]]:
+    #                 self._coordinator.tripstats.add_battery(
+    #                     self._coordinator.data[self.idx[1]]
+    #                 )
+    #         if self.entity_description.key == "MILEAGE":
+    #             prevDist = self._attr_native_value
+    #             if prevDist != self._coordinator.data[self.idx[1]]:
+    #                 self._coordinator.tripstats.add_distance(
+    #                     self._coordinator.data[self.idx[1]]
+    #                 )
 
-    def update_chargestats(self):
-        is_charging = bool(self._coordinator.data.get("CHARGING", 0))
-        was_charging = not self._coordinator.chargestats.carIsRunning
+    # def update_chargestats(self):
+    #     is_charging = bool(self._coordinator.data.get("CHARGING", 0))
+    #     was_charging = not self._coordinator.chargestats.carIsRunning
 
-        carEndedCharging = was_charging and not is_charging
+    #     carEndedCharging = was_charging and not is_charging
 
-        self._coordinator.chargestats.carIsRunning = not is_charging
-        self._coordinator.chargestats.vehicleParked = (
-            self._coordinator.data.get("POWER_MODE") == "off"
-        )
+    #     self._coordinator.chargestats.carIsRunning = not is_charging
+    #     self._coordinator.chargestats.vehicleParked = (
+    #         self._coordinator.data.get("POWER_MODE") == "off"
+    #     )
 
-        if carEndedCharging:
-            self._coordinator.chargestats.Clear()
-            if self.entity_description.key == "SOC":
-                self._coordinator.chargestats.add_battery(
-                    self._coordinator.data[self.idx[1]]
-                )
-            if self.entity_description.key == "MILEAGE":
-                self._coordinator.chargestats.add_distance(
-                    self._coordinator.data[self.idx[1]]
-                )
+    #     if carEndedCharging:
+    #         self._coordinator.chargestats.Clear()
+    #         if self.entity_description.key == "SOC":
+    #             self._coordinator.chargestats.add_battery(
+    #                 self._coordinator.data[self.idx[1]]
+    #             )
+    #         if self.entity_description.key == "MILEAGE":
+    #             self._coordinator.chargestats.add_distance(
+    #                 self._coordinator.data[self.idx[1]]
+    #             )
 
-        if is_charging:
-            if self.entity_description.key == "SOC":
-                prevBatt = self._attr_native_value
-                if prevBatt != self._coordinator.data[self.idx[1]]:
-                    self._coordinator.chargestats.add_battery(
-                        self._coordinator.data[self.idx[1]]
-                    )
-            if self.entity_description.key == "MILEAGE":
-                prevDist = self._attr_native_value
-                if prevDist != self._coordinator.data[self.idx[1]]:
-                    self._coordinator.chargestats.add_distance(
-                        self._coordinator.data[self.idx[1]]
-                    )
+    #     if is_charging:
+    #         if self.entity_description.key == "SOC":
+    #             prevBatt = self._attr_native_value
+    #             if prevBatt != self._coordinator.data[self.idx[1]]:
+    #                 self._coordinator.chargestats.add_battery(
+    #                     self._coordinator.data[self.idx[1]]
+    #                 )
+    #         if self.entity_description.key == "MILEAGE":
+    #             prevDist = self._attr_native_value
+    #             if prevDist != self._coordinator.data[self.idx[1]]:
+    #                 self._coordinator.chargestats.add_distance(
+    #                     self._coordinator.data[self.idx[1]]
+    #                 )
 
 
 def get_sensor_by_key(key):

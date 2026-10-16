@@ -133,9 +133,7 @@ class OceanPulseCoordinator(DataUpdateCoordinator):
                 if data.get("POWER_MODE") == "off":
                     self.update_interval = timedelta(seconds=60)
                 else:
-                    self.update_interval = timedelta(seconds=20)
-
-                self.update_interval = timedelta(seconds=300)
+                    self.update_interval = timedelta(seconds=30)
 
                 if self.update_interval != self._previous_update_interval:
                     _LOGGER.info(
@@ -154,7 +152,7 @@ class OceanPulseCoordinator(DataUpdateCoordinator):
 class OceanPulseBaseEntity(CoordinatorEntity):
     """Common base for OceanPulse entities."""
 
-    _attr_attribution = "Data provided by FOCE (OceanPulse API)"
+    _attr_attribution = "Data provided by OceanPulse API"
 
     def __init__(
         self,
